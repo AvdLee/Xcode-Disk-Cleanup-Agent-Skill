@@ -345,12 +345,28 @@ def runtime_inventory() -> list[dict[str, Any]]:
     return runtimes
 
 
-CHOSEN_RUNTIME_PATTERN = re.compile(r"Chosen Runtime:\s*(\S+)")
+CHOSEN_RUNTIME_LINE = re.compile(r"Chosen Runtime:\s*(.+)")
+CHOSEN_RUNTIME_BUILD = re.compile(r"\([\d.]+\s*-\s*(\S+)\)")
+SDK_VERSION_LINE = re.compile(r"SDK Version:\s*(\S+)")
+PLATFORM_LINE = re.compile(r"Platform:\s*(\S+)")
 
 
-def sdk_chosen_runtime_builds(installations: list[dict[str, Any]]) -> set[str]:
-    """Runtime builds that installed Xcode SDKs resolve to via `runtime match list`."""
-    builds: set[str] = set()
+def platform_fragment(identifier: str) -> str:
+    """Normalize SDK and simulator platform identifiers to a comparable stem."""
+    name = identifier.rsplit(".", 1)[-1].lower()
+    for suffix in ("simulator", "os"):
+        name = name.removesuffix(suffix)
+    return name
+
+
+def sdk_runtime_matches(installations: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """SDK-to-runtime resolutions from `simctl runtime match list` per installed Xcode.
+
+    The `Chosen Runtime` line has two formats: `<name> (<version> - <build>) - <id>`
+    when an installed runtime matched, or a bare build when only the SDK default
+    applies. Both carry evidence, so return structured entries instead of raw builds.
+    """
+    matches: list[dict[str, str]] = []
     for item in installations:
         developer_dir = Path(item["path"]) / "Contents/Developer"
         if not developer_dir.is_dir():
@@ -362,10 +378,30 @@ def sdk_chosen_runtime_builds(installations: list[dict[str, Any]]) -> set[str]:
         )
         if result.returncode != 0:
             continue
-        for build in CHOSEN_RUNTIME_PATTERN.findall(result.stdout):
-            if build != "(null)":
-                builds.add(build)
-    return builds
+        sdk_version = ""
+        platform = ""
+        for line in result.stdout.splitlines():
+            if version_match := SDK_VERSION_LINE.search(line):
+                sdk_version = version_match.group(1)
+                continue
+            if platform_match := PLATFORM_LINE.search(line):
+                platform = platform_match.group(1)
+                continue
+            chosen_match = CHOSEN_RUNTIME_LINE.search(line)
+            if not chosen_match:
+                continue
+            chosen = chosen_match.group(1).strip()
+            build_match = CHOSEN_RUNTIME_BUILD.search(chosen)
+            build = build_match.group(1) if build_match else chosen
+            if build and build != "(null)":
+                matches.append(
+                    {
+                        "platform": platform_fragment(platform),
+                        "sdk_version": sdk_version,
+                        "build": build,
+                    }
+                )
+    return matches
 
 
 def version_tuple(version: str) -> tuple[int, ...]:
@@ -376,7 +412,20 @@ def inspect_runtimes(
     runtimes: list[dict[str, Any]],
     installations: list[dict[str, Any]],
 ) -> list[Candidate]:
-    chosen_builds = sdk_chosen_runtime_builds(installations)
+    matches = sdk_runtime_matches(installations)
+    installed_builds = {str(runtime.get("build", "")) for runtime in runtimes}
+    resolved_builds = {
+        entry["build"] for entry in matches if entry["build"] in installed_builds
+    }
+    # When an SDK's chosen build matches no installed runtime, `simctl` fell
+    # back to the SDK default. The SDK still needs a runtime of that platform
+    # and marketing version, so protect all matching runtimes conservatively.
+    unresolved_platform_versions = {
+        (entry["platform"], version_tuple(entry["sdk_version"])[:2])
+        for entry in matches
+        if entry["build"] not in installed_builds
+    }
+
     candidates: list[Candidate] = []
     for runtime in runtimes:
         identifier = runtime.get("identifier")
@@ -388,7 +437,11 @@ def inspect_runtimes(
         size = runtime.get("sizeBytes")
         size = size if isinstance(size, int) else 0
         deletable = bool(runtime.get("deletable", False))
-        chosen = build in chosen_builds
+        chosen = build in resolved_builds
+        version_protected = (
+            platform_fragment(platform),
+            version_tuple(version)[:2],
+        ) in unresolved_platform_versions
 
         siblings = [
             other
@@ -409,7 +462,7 @@ def inspect_runtimes(
                 other
                 for other in siblings
                 if str(other.get("version", "")) == version
-                and str(other.get("build", "")) in chosen_builds
+                and str(other.get("build", "")) in resolved_builds
                 and str(other.get("build", "")) != build
             ),
             None,
@@ -424,12 +477,14 @@ def inspect_runtimes(
         ]
 
         # A runtime is stale only with positive evidence: no installed SDK
-        # chooses it, and either a newer version exists for the platform or a
-        # same-version sibling (the newer beta case) is the one SDKs resolve to.
+        # chooses it or needs its platform version, and either a newer version
+        # exists for the platform or a same-version sibling (the newer beta
+        # case) is the one SDKs resolve to.
         stale = (
             deletable
-            and chosen_builds
+            and matches
             and not chosen
+            and not version_protected
             and (newer_version is not None or chosen_sibling_same_version is not None)
         )
         if stale:
@@ -462,7 +517,12 @@ def inspect_runtimes(
 
         if chosen:
             evidence.append("Chosen by an installed Xcode SDK.")
-        elif not chosen_builds:
+        elif version_protected:
+            evidence.append(
+                "An installed SDK targets this platform version without an exact "
+                "runtime build match; protected conservatively."
+            )
+        elif not matches:
             evidence.append("SDK match information unavailable; treating as in use.")
         candidates.append(
             Candidate(

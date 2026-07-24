@@ -180,10 +180,15 @@ class AuditTests(unittest.TestCase):
         "lastUsedAt": "2026-07-20T10:00:00Z",
     }
 
+    SDK_MATCHES = [
+        {"platform": "iphone", "sdk_version": "27.0", "build": "25A5316j"},
+        {"platform": "watch", "sdk_version": "26.5", "build": "23T600"},
+    ]
+
     @mock.patch.object(
         cleanup,
-        "sdk_chosen_runtime_builds",
-        return_value={"25A5316j", "23T600"},
+        "sdk_runtime_matches",
+        return_value=SDK_MATCHES,
     )
     def test_superseded_beta_runtime_is_deletable(self, _: mock.Mock) -> None:
         runtimes = [dict(self.RUNTIME_BETA_OLD), dict(self.RUNTIME_BETA_NEW)]
@@ -199,8 +204,8 @@ class AuditTests(unittest.TestCase):
 
     @mock.patch.object(
         cleanup,
-        "sdk_chosen_runtime_builds",
-        return_value={"25A5316j", "23T600"},
+        "sdk_runtime_matches",
+        return_value=SDK_MATCHES,
     )
     def test_older_version_runtime_is_deletable(self, _: mock.Mock) -> None:
         runtimes = [dict(self.RUNTIME_WATCH_OLD), dict(self.RUNTIME_WATCH_NEW)]
@@ -214,7 +219,7 @@ class AuditTests(unittest.TestCase):
             stale.evidence,
         )
 
-    @mock.patch.object(cleanup, "sdk_chosen_runtime_builds", return_value=set())
+    @mock.patch.object(cleanup, "sdk_runtime_matches", return_value=[])
     def test_runtimes_stay_report_only_without_sdk_evidence(self, _: mock.Mock) -> None:
         runtimes = [dict(self.RUNTIME_WATCH_OLD), dict(self.RUNTIME_WATCH_NEW)]
 
@@ -225,8 +230,10 @@ class AuditTests(unittest.TestCase):
 
     @mock.patch.object(
         cleanup,
-        "sdk_chosen_runtime_builds",
-        return_value={"25A5316j"},
+        "sdk_runtime_matches",
+        return_value=[
+            {"platform": "iphone", "sdk_version": "27.0", "build": "25A5316j"}
+        ],
     )
     def test_non_deletable_runtime_is_never_actionable(self, _: mock.Mock) -> None:
         pinned = dict(self.RUNTIME_BETA_OLD, deletable=False)
@@ -236,6 +243,74 @@ class AuditTests(unittest.TestCase):
 
         stale = next(item for item in candidates if item.identifier == "AAAA-1111")
         self.assertEqual(stale.action, "report-only")
+
+    @mock.patch.object(cleanup, "run")
+    def test_sdk_match_parses_both_chosen_runtime_formats(
+        self, run: mock.Mock
+    ) -> None:
+        run.return_value = mock.Mock(
+            returncode=0,
+            stdout=(
+                "== Evaluation Results ==\n"
+                "iphoneos26.5:\n"
+                "    SDK Version: 26.5.1\n"
+                "    SDK Build: 23F81a\n"
+                "    Platform: com.apple.platform.iphoneos\n"
+                "    Chosen Runtime: 23F81a\n"
+                "        Default: 23F81a\n"
+                "\n"
+                "watchos26.5:\n"
+                "    SDK Version: 26.5\n"
+                "    SDK Build: 23T570\n"
+                "    Platform: com.apple.platform.watchos\n"
+                "    Chosen Runtime: watchOS 26.5 (26.5 - 23T570) - "
+                "com.apple.CoreSimulator.SimRuntime.watchOS-26-5\n"
+            ),
+            stderr="",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            xcode = Path(temporary) / "Xcode.app"
+            (xcode / "Contents/Developer").mkdir(parents=True)
+
+            matches = cleanup.sdk_runtime_matches([{"path": xcode}])
+
+        self.assertEqual(
+            matches,
+            [
+                {"platform": "iphone", "sdk_version": "26.5.1", "build": "23F81a"},
+                {"platform": "watch", "sdk_version": "26.5", "build": "23T570"},
+            ],
+        )
+
+    @mock.patch.object(
+        cleanup,
+        "sdk_runtime_matches",
+        return_value=[
+            # SDK default build 23F81a matches no installed runtime, so the
+            # 26.5 runtime (23F77) must stay protected despite iOS 27 existing.
+            {"platform": "iphone", "sdk_version": "26.5.1", "build": "23F81a"},
+            {"platform": "iphone", "sdk_version": "27.0", "build": "25A5316j"},
+        ],
+    )
+    def test_unresolved_sdk_version_protects_same_version_runtime(
+        self, _: mock.Mock
+    ) -> None:
+        current = {
+            "identifier": "EEEE-5555",
+            "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.iOS-26-5",
+            "platformIdentifier": "com.apple.platform.iphonesimulator",
+            "version": "26.5",
+            "build": "23F77",
+            "deletable": True,
+            "sizeBytes": 8 * 1024**3,
+        }
+        runtimes = [current, dict(self.RUNTIME_BETA_NEW)]
+
+        candidates = cleanup.inspect_runtimes(runtimes, [])
+
+        protected = next(item for item in candidates if item.identifier == "EEEE-5555")
+        self.assertEqual(protected.action, "report-only")
+        self.assertEqual(protected.risk, "preserve")
 
     def test_device_support_keeps_newest_per_platform(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

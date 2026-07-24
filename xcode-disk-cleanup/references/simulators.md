@@ -54,7 +54,12 @@ uses them. A runtime is a deletion candidate only when all three hold:
      xcrun simctl runtime match list
    ```
 
-   The `Chosen Runtime` lines list the builds SDKs actually use.
+   The `Chosen Runtime` lines list the builds SDKs actually use. Two formats
+   appear: `<name> (<version> - <build>) - <identifier>` when an installed
+   runtime matched, or a bare SDK-default build when none did. A bare build
+   that matches no installed runtime still protects every installed runtime of
+   that platform and marketing version, because the SDK has nothing newer to
+   fall back to.
 3. A newer runtime supersedes it on the same platform — either a higher version,
    or the same marketing version whose sibling build is the one SDKs choose
    (the superseded-beta case).
