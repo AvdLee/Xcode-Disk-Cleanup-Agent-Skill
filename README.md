@@ -47,7 +47,7 @@ or permanently losing it.
 ## Safety guarantee
 
 As a developer you always need to stay in control of what gets deleted from
-your machine — a build cache is cheap to lose, but the wrong archive or
+your machine: a build cache is cheap to lose, but the wrong archive or
 simulator is not. That's why the skill treats “clean Xcode” as permission to
 inspect, never as permission to delete.
 
@@ -82,7 +82,7 @@ structured JSON instead of ad-hoc shell output.
 ```text
 Audit my Xcode-related disk usage and show how many GB each cleanup could recover.
 
-My Mac is low on storage and Xcode seems to be the reason — figure out what's safe to remove.
+My Mac is low on storage and Xcode seems to be the reason. Figure out what's safe to remove.
 
 Which simulator runtimes are actually stale after installing the latest Xcode beta?
 
@@ -91,10 +91,10 @@ Find Xcode installers in my Downloads folder that I no longer need.
 
 **Under the hood:**
 
-- `scripts/xcode_disk_cleanup.py audit` — read-only inventory across all
+- `scripts/xcode_disk_cleanup.py audit`: read-only inventory across all
   categories. Emits `audit.json` (stable candidate IDs, sizes, risk, evidence,
   path fingerprints) and a markdown report.
-- `scripts/xcode_disk_cleanup.py apply` — executes only the exact candidate IDs
+- `scripts/xcode_disk_cleanup.py apply`: executes only the exact candidate IDs
   you approved, with a required confirmation phrase, a second phrase for
   irreversible Simulator operations, path-identity revalidation, and
   running-process checks before every mutation.
