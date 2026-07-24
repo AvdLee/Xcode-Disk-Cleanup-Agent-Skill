@@ -4,7 +4,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/AvdLee/Xcode-Disk-Cleanup-Agent-Skill)](https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill/releases)
 [![GitHub Stars](https://img.shields.io/github/stars/AvdLee/Xcode-Disk-Cleanup-Agent-Skill?style=flat)](https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill/stargazers)
 
-An audit-first skill for any AI coding tool that supports the [Agent Skills open format](https://agentskills.io/home) — reclaim Xcode development storage without surprising deletions. It measures cleanup opportunities, explains the cost of each one, reports recoverable GiB with evidence, and waits for your explicit itemized approval before changing anything.
+**An audit-first Agent Skill for developers using Xcode.** Reclaim development storage without surprising deletions in any AI coding tool that supports the [Agent Skills open format](https://agentskills.io/home). The skill measures cleanup opportunities, explains the cost of each one, reports recoverable GiB with evidence, and waits for your explicit itemized approval before changing anything.
 
 Building iOS apps with AI agents? [RocketSim](https://www.rocketsim.app/) gives
 agents fast, structured access to inspect and interact with iOS Simulator apps.
