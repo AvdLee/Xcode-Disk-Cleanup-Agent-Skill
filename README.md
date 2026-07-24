@@ -40,9 +40,12 @@ or permanently losing it.
 
 ## Safety guarantee
 
-The skill treats “clean Xcode” as permission to inspect, not delete.
+As a developer you always need to stay in control of what gets deleted from
+your machine — a build cache is cheap to lose, but the wrong archive or
+simulator is not. That's why the skill treats “clean Xcode” as permission to
+inspect, never as permission to delete.
 
-Before any mutation, it presents:
+Before anything is mutated, you get to see for every candidate:
 
 - A stable candidate ID
 - Exact path or Simulator identifier
@@ -51,9 +54,10 @@ Before any mutation, it presents:
 - Evidence supporting the recommendation
 - The exact action it proposes
 
-The user must approve exact IDs. Ordinary files move to Trash by default.
-Irreversible Simulator operations require a second confirmation. Archives and
-dSYMs are preserved unless the exact distributed build is safely backed up.
+Nothing happens until you approve exact IDs. Ordinary files move to Trash by
+default, so you can still recover them. Irreversible Simulator operations ask
+you for a second, separate confirmation. Your archives and dSYMs stay preserved
+unless you confirm the exact distributed build is safely backed up.
 
 ## Installation
 
