@@ -1,8 +1,8 @@
 # Xcode Disk Cleanup Skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![GitHub Release](https://img.shields.io/github/v/release/AvdLee/Xcode-Disk-Cleanup-Agent-Skill)](https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/AvdLee/Xcode-Disk-Cleanup-Agent-Skill?style=flat)](https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill/stargazers)
+[![GitHub Release](https://img.shields.io/github/v/release/AvdLee/Xcode-Disk-Cleanup-Agent-Skill?sort=semver)](https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/AvdLee/Xcode-Disk-Cleanup-Agent-Skill?style=flat&color=brightgreen)](https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill/stargazers)
 
 **An audit-first Agent Skill for developers using Xcode.** Reclaim development storage without surprising deletions in any AI coding tool that supports the [Agent Skills open format](https://agentskills.io/home). The skill measures cleanup opportunities, explains the cost of each one, reports recoverable GiB with evidence, and waits for your explicit itemized approval before changing anything.
 
