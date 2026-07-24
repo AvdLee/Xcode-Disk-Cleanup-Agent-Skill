@@ -163,14 +163,7 @@ configure the repository's `.claude/settings.json`:
 
 When team members open the project, Claude Code will prompt them to install the Skill.
 
-### Option C: Cursor plugin
-
-This repository is packaged as a Cursor plugin via `.cursor-plugin/plugin.json`.
-See the [Cursor plugins documentation](https://cursor.com/docs/plugins) for
-installation instructions, or symlink `xcode-disk-cleanup/` into your Cursor
-skills directory following [Enabling Skills](https://cursor.com/docs/context/skills#enabling-skills).
-
-### Option D: Codex / OpenAI-compatible tools
+### Option C: Codex / OpenAI-compatible tools
 
 This repository includes an `agents/openai.yaml` manifest. Copy or symlink the
 `xcode-disk-cleanup/` folder into your Codex skills directory:
@@ -182,7 +175,7 @@ cp -R xcode-disk-cleanup/ "$CODEX_HOME/skills/xcode-disk-cleanup"
 See the [Codex skills documentation](https://developers.openai.com/codex/skills/)
 for details on where to save skills.
 
-### Option E: Using pi package manager
+### Option D: Using pi package manager
 
 Install via [pi](https://github.com/badlogic/pi-mono):
 
@@ -192,7 +185,7 @@ pi install https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill
 
 The skill will be available automatically in pi sessions.
 
-### Option F: Manual install
+### Option E: Manual install
 
 1. **Clone** this repository.
 2. **Install or symlink** the `xcode-disk-cleanup/` folder following your
@@ -205,7 +198,7 @@ Follow your tool's official documentation, here are a few popular ones:
 
 - **Codex:** [Where to save skills](https://developers.openai.com/codex/skills/#where-to-save-skills)
 - **Claude:** [Using Skills](https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview)
-- **Cursor:** [Plugins documentation](https://cursor.com/docs/plugins) or [Enabling Skills](https://cursor.com/docs/context/skills#enabling-skills)
+- **Cursor:** [Enabling Skills](https://cursor.com/docs/context/skills#enabling-skills)
 
 **How to verify:**
 
