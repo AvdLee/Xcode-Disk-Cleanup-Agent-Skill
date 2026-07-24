@@ -223,16 +223,21 @@ tests/ - Deterministic unit tests for classification and apply gating
 evals/ - Scenario evaluations used to benchmark the skill
 ```
 
-## What makes this different
+## This skill's approach
 
-- Read-only by default
-- Deterministic JSON and Markdown reports
-- APFS-aware candidate versus actual recovery accounting
-- Supported `simctl` and Xcode workflows
-- Evidence-based staleness: SDK runtime matching, Organizer distribution
-  records, workspace existence, and installer version matching
-- Path identity and running-process revalidation before cleanup
-- No wildcard cleanup, `sudo`, SIP changes, or raw system-runtime deletion
+- **Token efficient**: one bundled script performs the entire audit and returns
+  structured JSON, so your agent reasons over compact data instead of burning
+  context on dozens of exploratory shell commands.
+- **Proven Apple tooling**: cleanup goes through supported workflows like
+  `xcrun simctl` and Xcode itself, never through wildcard deletes, `sudo`, SIP
+  changes, or raw system-runtime removal.
+- **Evidence over heuristics**: staleness is proven with SDK runtime matching,
+  Organizer distribution records, workspace existence, and installer version
+  matching before anything is proposed.
+- **Honest accounting**: deterministic JSON and Markdown reports separate
+  candidate sizes from actual APFS space recovered.
+- **Safe by design**: read-only by default, Trash first, and path identity plus
+  running-process revalidation right before every mutation.
 
 ## Sources
 
