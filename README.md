@@ -6,8 +6,11 @@
 
 **An audit-first Agent Skill for developers using Xcode.** Reclaim development storage without surprising deletions in any AI coding tool that supports the [Agent Skills open format](https://agentskills.io/home). The skill measures cleanup opportunities, explains the cost of each one, reports recoverable GiB with evidence, and waits for your explicit itemized approval before changing anything.
 
-Building iOS apps with AI agents? [RocketSim](https://www.rocketsim.app/) gives
-agents fast, structured access to inspect and interact with iOS Simulator apps.
+Built by [Antoine van der Lee](https://www.avanderlee.com) (SwiftLee), known for
+[RocketSim](https://www.rocketsim.app/), which comes with a CLI + Agent Skill for
+Simulator interactions, and his [other agent skills](#see-also-my-other-skills)
+like the popular [SwiftUI](https://github.com/AvdLee/SwiftUI-Agent-Skill) and
+[Swift Concurrency](https://github.com/AvdLee/Swift-Concurrency-Agent-Skill) ones.
 
 ## Who this is for
 
