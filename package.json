@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "keywords": [
+    "pi-package"
+  ],
+  "pi": {
+    "skills": [
+      "./xcode-disk-cleanup"
+    ]
+  }
+}

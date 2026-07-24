@@ -1,0 +1,23 @@
+{
+  "name": "xcode-disk-cleanup",
+  "version": "1.0.0",
+  "description": "Audit Xcode developer storage, report recoverable GiB, and clean only explicitly approved items.",
+  "author": {
+    "name": "Antoine van der Lee",
+    "email": "contact@avanderlee.com"
+  },
+  "repository": "https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill",
+  "license": "MIT",
+  "logo": "assets/logo.svg",
+  "keywords": [
+    "xcode",
+    "macos",
+    "disk-cleanup",
+    "derived-data",
+    "simulator",
+    "swiftpm"
+  ],
+  "skills": [
+    "xcode-disk-cleanup"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "skill_name": "xcode-disk-cleanup",
+  "evals": [
+    {
+      "id": 1,
+      "name": "low-space-audit",
+      "prompt": "My Mac is low on storage and Xcode seems to be the reason. Audit the machine and give me an itemized report sorted by recoverable GB. I have active builds running, so do not delete anything or disrupt them.",
+      "expected_output": "A read-only, GiB-sorted report that detects active work, distinguishes candidate size from APFS recovery, and asks for exact-ID approval before mutation.",
+      "files": [],
+      "expectations": [
+        "The output explicitly says no deletion was performed and defers cleanup while builds are active.",
+        "The output itemizes candidates with exact IDs or paths, recoverable GiB, risk, and regeneration cost.",
+        "The output distinguishes summed candidate size from actual APFS free-space recovery and explains Trash behavior.",
+        "The output requests approval of exact candidate IDs before any mutation."
+      ]
+    },
+    {
+      "id": 2,
+      "name": "installer-and-old-xcode",
+      "prompt": "I often leave downloaded Xcode DMGs or XIPs in Downloads after installing them. Find those and tell me whether any installed Xcode version also looks unused. Clean up whatever is safe.",
+      "expected_output": "An evidence-based installer and Xcode inventory that does not interpret 'clean up whatever is safe' as deletion permission, protects active and uniquely required Xcodes, and requests itemized approval.",
+      "files": [],
+      "expectations": [
+        "The output covers Xcode DMG, XIP, and ZIP installers in common folders or Spotlight results.",
+        "An installer is actionable only when its version is matched to an installed Xcode; uncertain names remain unselected.",
+        "Potentially unused Xcodes are evaluated with active selection, running use, channel, project or CI references, and unique SDK/toolchain evidence.",
+        "The output performs no deletion and requests approval of exact candidate IDs."
+      ]
+    },
+    {
+      "id": 3,
+      "name": "simulators-and-archives",
+      "prompt": "Reclaim Xcode storage. I probably have unavailable simulators, old runtimes, DeviceSupport, and duplicate archives. Keep anything important for crash reports but otherwise remove stale items.",
+      "expected_output": "A safe audit that uses supported Simulator workflows, treats archives/dSYMs as preserve-by-default, reports DeviceSupport uncertainty, and requires separate approval for irreversible Simulator deletion.",
+      "files": [],
+      "expectations": [
+        "Unavailable Simulator devices are itemized and deletion uses simctl with separate irreversible confirmation.",
+        "Runtime cleanup is delegated to supported Xcode or simctl workflows rather than raw system-folder deletion.",
+        "Archives and dSYMs are preserve-by-default because exact distributed-build symbols can be irreplaceable.",
+        "DeviceSupport is reported with symbolication and regeneration uncertainty, and no item is deleted without exact approval."
+      ]
+    }
+  ]
+}

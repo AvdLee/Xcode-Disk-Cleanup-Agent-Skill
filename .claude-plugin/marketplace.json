@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/marketplace/marketplace.schema.json",
+  "name": "xcode-disk-cleanup-agent-skill",
+  "version": "1.0.0",
+  "owner": {
+    "name": "Antoine van der Lee",
+    "email": "contact@avanderlee.com"
+  },
+  "metadata": {
+    "description": "Evidence-based, confirmation-gated Xcode storage cleanup."
+  },
+  "plugins": [
+    {
+      "name": "xcode-disk-cleanup",
+      "description": "Audit Xcode storage and clean only exact user-approved candidates.",
+      "repository": "https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill",
+      "version": "1.0.0",
+      "author": {
+        "name": "Antoine van der Lee",
+        "email": "contact@avanderlee.com"
+      },
+      "license": "MIT",
+      "category": "development",
+      "keywords": [
+        "xcode",
+        "macos",
+        "disk-cleanup",
+        "derived-data",
+        "simulator",
+        "swiftpm"
+      ],
+      "tags": [
+        "xcode",
+        "macos",
+        "disk-cleanup",
+        "developer-tools",
+        "agent-skill"
+      ],
+      "source": "./"
+    }
+  ]
+}

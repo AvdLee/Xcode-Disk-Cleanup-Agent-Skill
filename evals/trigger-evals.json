@@ -1,0 +1,82 @@
+[
+  {
+    "query": "My MacBook has 18 GB free and ~/Library/Developer is enormous. Audit Xcode storage, rank cleanup candidates by GB, and wait for me before deleting anything.",
+    "should_trigger": true
+  },
+  {
+    "query": "Can you check whether DerivedData for branches and worktrees I deleted is still taking space? I have three xcodebuild jobs running, so inspection only.",
+    "should_trigger": true
+  },
+  {
+    "query": "I think iOS 25 simulator devices are stranded after I removed the runtime. Show unavailable devices and their sizes, but preserve current iOS 26 devices.",
+    "should_trigger": true
+  },
+  {
+    "query": "Downloads probably contains old Xcode_26.3.xip and DMGs. Match them against /Applications and tell me which installers can go.",
+    "should_trigger": true
+  },
+  {
+    "query": "I have Xcode.app, Xcode-26.4.app, and Xcode-beta.app. Is there evidence one is unused and safe to remove without breaking CI toolchains?",
+    "should_trigger": true
+  },
+  {
+    "query": "Why is CoreSimulator using 60GB? Audit devices versus runtimes, including the SwiftUI previews set, and suggest supported cleanup actions.",
+    "should_trigger": true
+  },
+  {
+    "query": "Need disk space before installing macOS. Review Xcode archives, dSYMs, DeviceSupport, SwiftPM caches and local .build folders under ~/Developer.",
+    "should_trigger": true
+  },
+  {
+    "query": "xcode storage cleanup please — measure what I can recover, explain rebuild/download costs, and only trash the exact items I approve",
+    "should_trigger": true
+  },
+  {
+    "query": "Our build agents accumulate SDK caches and stale package artifacts. Create a read-only Xcode disk report suitable for deciding a cleanup policy.",
+    "should_trigger": true
+  },
+  {
+    "query": "I approved candidate IDs derived-missing:OldApp and xcode-installer:Xcode_26.3.xip:123 from the audit you just showed. Move only those to Trash and verify.",
+    "should_trigger": true
+  },
+  {
+    "query": "Xcode says the build database is locked and two compile commands are still running. Diagnose the build failure without deleting DerivedData.",
+    "should_trigger": false
+  },
+  {
+    "query": "The iOS Simulator crashes when launching my app. Inspect the crash logs and help fix the app code.",
+    "should_trigger": false
+  },
+  {
+    "query": "Please optimize our Xcode clean-build duration and find Swift type-checking hotspots. Disk space is fine.",
+    "should_trigger": false
+  },
+  {
+    "query": "Create a GitHub Actions workflow that caches DerivedData and Swift packages between CI runs.",
+    "should_trigger": false
+  },
+  {
+    "query": "My production crash report is unsymbolicated. Find the matching dSYM in our Xcode archives and symbolicate it.",
+    "should_trigger": false
+  },
+  {
+    "query": "Install Xcode 26.4 from the downloaded XIP, select it with xcode-select, and accept the license.",
+    "should_trigger": false
+  },
+  {
+    "query": "Write a Swift script using FileManager to compute folder sizes and print them as JSON.",
+    "should_trigger": false
+  },
+  {
+    "query": "I need an App Store archive for version 4.2 and want to upload it through Organizer.",
+    "should_trigger": false
+  },
+  {
+    "query": "Reset the content and settings of the currently booted iPhone simulator because onboarding state is broken.",
+    "should_trigger": false
+  },
+  {
+    "query": "Our Swift package cannot resolve dependencies after an Xcode update. Diagnose registry authentication and Package.resolved conflicts.",
+    "should_trigger": false
+  }
+]

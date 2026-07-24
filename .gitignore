@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.DS_Store
+.xcode-disk-cleanup-audit/
+evals/results/
