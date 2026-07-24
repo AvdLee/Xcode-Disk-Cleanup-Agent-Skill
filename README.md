@@ -78,7 +78,9 @@ structured JSON instead of ad-hoc shell output.
 
 - You mention low disk space, Xcode storage, DerivedData, simulators, runtimes,
   archives, or old Xcode versions.
-- Your Xcode Settings → Components tab lists beta platforms you never use.
+- You ask why Xcode Settings → Components still lists old beta platforms.
+- Your agent runs into low storage on its own, for example when a build or
+  download fails with an out-of-disk-space error.
 
 **What you can ask:**
 

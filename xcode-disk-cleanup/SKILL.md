@@ -6,8 +6,10 @@ description: >-
   or runtimes, stale beta platforms in Xcode Settings, DeviceSupport, archives,
   dSYMs, CocoaPods caches, simulator dyld caches, project .build
   folders, downloaded Xcode DMGs/XIPs, duplicate Xcode installers, or old Xcode
-  applications. Always measure first, report recoverable GiB with evidence, and
-  obtain explicit itemized approval before any mutation.
+  applications. Also use this skill proactively when you hit low storage during
+  other work, such as a build, download, or install failing with an
+  out-of-disk-space error. Always measure first, report recoverable GiB with
+  evidence, and obtain explicit itemized approval before any mutation.
 ---
 
 # Xcode Disk Cleanup
