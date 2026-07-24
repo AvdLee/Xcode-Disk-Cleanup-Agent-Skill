@@ -82,15 +82,10 @@ structured JSON instead of ad-hoc shell output.
 
 **What you can ask:**
 
-```text
-Audit my Xcode-related disk usage and show how many GB each cleanup could recover.
-
-My Mac is low on storage and Xcode seems to be the reason. Figure out what's safe to remove.
-
-Which simulator runtimes are actually stale after installing the latest Xcode beta?
-
-Find Xcode installers in my Downloads folder that I no longer need.
-```
+- `Audit my Xcode-related disk usage and show how many GB each cleanup could recover.`
+- `My Mac is low on storage and Xcode seems to be the reason. Figure out what's safe to remove.`
+- `Which simulator runtimes are actually stale after installing the latest Xcode beta?`
+- `Find Xcode installers in my Downloads folder that I no longer need.`
 
 **Under the hood:**
 
