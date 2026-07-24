@@ -384,6 +384,8 @@ def installed_xcodes(applications: Path) -> list[dict[str, Any]]:
         )
     for path in sorted(paths):
         info = safe_plist(path / "Contents/Info.plist")
+        if info.get("CFBundleIdentifier") != "com.apple.dt.Xcode":
+            continue
         version = info.get("CFBundleShortVersionString")
         build = info.get("ProductBuildVersion") or info.get("DTXcodeBuild")
         mdls = run(

@@ -157,6 +157,45 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(candidates[0].action, "report-only")
         self.assertEqual(candidates[0].risk, "preserve")
 
+    @mock.patch.object(cleanup, "directory_size", return_value=42)
+    @mock.patch.object(
+        cleanup,
+        "run",
+        return_value=mock.Mock(returncode=0, stdout="", stderr=""),
+    )
+    def test_xcode_version_manager_is_not_treated_as_xcode(
+        self,
+        _: mock.Mock,
+        __: mock.Mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            applications = Path(temporary)
+            xcode = applications / "Xcode-26.6.app/Contents"
+            manager = applications / "Xcodes.app/Contents"
+            xcode.mkdir(parents=True)
+            manager.mkdir(parents=True)
+            with (xcode / "Info.plist").open("wb") as stream:
+                plistlib.dump(
+                    {
+                        "CFBundleIdentifier": "com.apple.dt.Xcode",
+                        "CFBundleShortVersionString": "26.6",
+                    },
+                    stream,
+                )
+            with (manager / "Info.plist").open("wb") as stream:
+                plistlib.dump(
+                    {
+                        "CFBundleIdentifier": "com.xcodesorg.xcodes",
+                        "CFBundleShortVersionString": "3.0",
+                    },
+                    stream,
+                )
+
+            installations = cleanup.installed_xcodes(applications)
+
+            self.assertEqual(len(installations), 1)
+            self.assertEqual(installations[0]["path"].name, "Xcode-26.6.app")
+
 
 class ApplyTests(unittest.TestCase):
     def write_audit(self, root: Path, candidates: list[dict]) -> Path:
