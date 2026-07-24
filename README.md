@@ -10,16 +10,30 @@ changing anything.
 Building iOS apps with AI agents? [RocketSim](https://www.rocketsim.app/) gives
 agents fast, structured access to inspect and interact with iOS Simulator apps.
 
-## What it audits
+## What it searches for
+
+The skill runs a read-only audit across every place Xcode quietly accumulates
+storage, from build caches to forgotten beta platform runtimes. Each finding is
+reported with its size in GiB, supporting evidence, and the cost of regenerating
+or permanently losing it.
 
 - Xcode DerivedData and shared compiler caches
 - Project-local `.build` and `.derived-data` folders
 - Available and unavailable Simulator devices
-- Installed Simulator runtimes
 - SwiftUI Preview device sets
+- Installed Simulator runtimes, including stale beta runtimes superseded by a
+  newer platform version that no installed Xcode SDK still uses
+- Orphaned Simulator runtime volumes not registered with CoreSimulator
+- Simulator dyld caches left behind by removed runtimes
+- Simulator clones created by parallel test runs (`XCTestDevices`)
+- CoreSimulator and iOS device diagnostic logs
 - SwiftPM download caches
-- Documentation caches
-- Archives, dSYMs, and DeviceSupport
+- CocoaPods download caches
+- Documentation caches and legacy DocSets
+- Archives, dSYMs, and per-platform DeviceSupport symbols (iOS, watchOS, tvOS,
+  visionOS), keeping the newest symbol set per platform
+- Xcode-managed components such as the Metal Toolchain and downloadable
+  documentation assets
 - Downloaded Xcode `.xip`, `.dmg`, and `.zip` installers
 - Installed Xcode applications, active selection, and evidence of recent use
 

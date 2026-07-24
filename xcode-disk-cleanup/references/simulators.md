@@ -31,8 +31,44 @@ routine cleanup.
 
 ## Installed runtimes
 
-Manage runtimes through Xcode Settings → Components. Xcode reports recoverable
-storage and maintains system registration correctly.
+Runtimes are multi-gigabyte platform images managed by CoreSimulator and the
+MobileAsset system. Inventory them with:
+
+```bash
+xcrun simctl runtime list -j
+```
+
+Each entry reports `deletable`, `lastUsedAt`, `sizeBytes`, and the runtime build.
+
+### Staleness evidence
+
+Installing a newer Xcode beta frequently leaves older beta platform runtimes
+behind; they keep appearing in Xcode Settings → Components long after any SDK
+uses them. A runtime is a deletion candidate only when all three hold:
+
+1. `simctl` reports it `deletable` (not pinned inside an installed Xcode).
+2. No installed Xcode SDK resolves to its build. Verify per installed Xcode:
+
+   ```bash
+   DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+     xcrun simctl runtime match list
+   ```
+
+   The `Chosen Runtime` lines list the builds SDKs actually use.
+3. A newer runtime supersedes it on the same platform — either a higher version,
+   or the same marketing version whose sibling build is the one SDKs choose
+   (the superseded-beta case).
+
+Delete only through the supported command, after separate irreversible approval:
+
+```bash
+xcrun simctl runtime delete <UUID>
+```
+
+Devices tied to the runtime stop booting afterwards, and restoring the runtime
+requires a multi-gigabyte download.
+
+### Never touch runtime storage manually
 
 Do not manually delete:
 
@@ -40,8 +76,23 @@ Do not manually delete:
 - `/System/Library/AssetsV2`
 - Mounted runtime volumes
 
-Do not disable SIP to remove runtime assets. If Xcode leaves protected orphaned
-assets, direct the user to supported Xcode/macOS remediation.
+Do not disable SIP to remove runtime assets. If a mounted volume under
+`/Library/Developer/CoreSimulator/Volumes` is not reported by
+`simctl runtime list`, run `xcrun simctl runtime scan-and-mount` so CoreSimulator
+re-registers it, then delete by UUID through `simctl`.
+
+## Simulator dyld caches
+
+`~/Library/Developer/CoreSimulator/Caches/dyld` keeps per-runtime shared caches.
+Entries whose runtime identifier and build no longer match an installed runtime
+are regenerable leftovers; matching caches rebuild automatically on next boot, so
+avoid clearing caches for runtimes still in daily use.
+
+## XCTest device clones
+
+`~/Library/Developer/XCTestDevices` holds simulator clones created for parallel
+test runs. They are recreated on the next test run, but never remove them while
+tests are executing.
 
 ## Previews
 

@@ -139,23 +139,156 @@ class AuditTests(unittest.TestCase):
             self.assertEqual(candidates[0].action, "report-only")
             self.assertEqual(candidates[0].risk, "preserve")
 
-    @mock.patch.object(cleanup, "simctl_json")
-    def test_runtimes_are_inventory_only(self, simctl_json: mock.Mock) -> None:
-        simctl_json.return_value = {
-            "runtimes": [
+    RUNTIME_BETA_OLD = {
+        "identifier": "AAAA-1111",
+        "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.iOS-27-0",
+        "platformIdentifier": "com.apple.platform.iphonesimulator",
+        "version": "27.0",
+        "build": "25A5306g",
+        "deletable": True,
+        "sizeBytes": 9 * 1024**3,
+        "lastUsedAt": "2026-06-01T10:00:00Z",
+    }
+    RUNTIME_BETA_NEW = {
+        "identifier": "BBBB-2222",
+        "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.iOS-27-0",
+        "platformIdentifier": "com.apple.platform.iphonesimulator",
+        "version": "27.0",
+        "build": "25A5316j",
+        "deletable": True,
+        "sizeBytes": 9 * 1024**3,
+        "lastUsedAt": "2026-07-20T10:00:00Z",
+    }
+    RUNTIME_WATCH_OLD = {
+        "identifier": "CCCC-3333",
+        "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.watchOS-26-4",
+        "platformIdentifier": "com.apple.platform.watchsimulator",
+        "version": "26.4",
+        "build": "23T500",
+        "deletable": True,
+        "sizeBytes": 4 * 1024**3,
+        "lastUsedAt": "2026-03-01T10:00:00Z",
+    }
+    RUNTIME_WATCH_NEW = {
+        "identifier": "DDDD-4444",
+        "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.watchOS-26-5",
+        "platformIdentifier": "com.apple.platform.watchsimulator",
+        "version": "26.5",
+        "build": "23T600",
+        "deletable": True,
+        "sizeBytes": 4 * 1024**3,
+        "lastUsedAt": "2026-07-20T10:00:00Z",
+    }
+
+    @mock.patch.object(
+        cleanup,
+        "sdk_chosen_runtime_builds",
+        return_value={"25A5316j", "23T600"},
+    )
+    def test_superseded_beta_runtime_is_deletable(self, _: mock.Mock) -> None:
+        runtimes = [dict(self.RUNTIME_BETA_OLD), dict(self.RUNTIME_BETA_NEW)]
+
+        candidates = cleanup.inspect_runtimes(runtimes, [])
+
+        stale = next(item for item in candidates if item.identifier == "AAAA-1111")
+        kept = next(item for item in candidates if item.identifier == "BBBB-2222")
+        self.assertEqual(stale.action, "simctl-runtime-delete")
+        self.assertEqual(stale.risk, "destructive")
+        self.assertEqual(kept.action, "report-only")
+        self.assertEqual(kept.risk, "preserve")
+
+    @mock.patch.object(
+        cleanup,
+        "sdk_chosen_runtime_builds",
+        return_value={"25A5316j", "23T600"},
+    )
+    def test_older_version_runtime_is_deletable(self, _: mock.Mock) -> None:
+        runtimes = [dict(self.RUNTIME_WATCH_OLD), dict(self.RUNTIME_WATCH_NEW)]
+
+        candidates = cleanup.inspect_runtimes(runtimes, [])
+
+        stale = next(item for item in candidates if item.identifier == "CCCC-3333")
+        self.assertEqual(stale.action, "simctl-runtime-delete")
+        self.assertIn(
+            "Superseded by 26.5 (23T600) on the same platform.",
+            stale.evidence,
+        )
+
+    @mock.patch.object(cleanup, "sdk_chosen_runtime_builds", return_value=set())
+    def test_runtimes_stay_report_only_without_sdk_evidence(self, _: mock.Mock) -> None:
+        runtimes = [dict(self.RUNTIME_WATCH_OLD), dict(self.RUNTIME_WATCH_NEW)]
+
+        candidates = cleanup.inspect_runtimes(runtimes, [])
+
+        self.assertTrue(all(item.action == "report-only" for item in candidates))
+        self.assertTrue(all(item.risk == "preserve" for item in candidates))
+
+    @mock.patch.object(
+        cleanup,
+        "sdk_chosen_runtime_builds",
+        return_value={"25A5316j"},
+    )
+    def test_non_deletable_runtime_is_never_actionable(self, _: mock.Mock) -> None:
+        pinned = dict(self.RUNTIME_BETA_OLD, deletable=False)
+        runtimes = [pinned, dict(self.RUNTIME_BETA_NEW)]
+
+        candidates = cleanup.inspect_runtimes(runtimes, [])
+
+        stale = next(item for item in candidates if item.identifier == "AAAA-1111")
+        self.assertEqual(stale.action, "report-only")
+
+    def test_device_support_keeps_newest_per_platform(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            for platform, versions in {
+                "iOS": ("iPhone15,2 18.5 (22F76)", "iPhone15,2 26.0 (23A100)"),
+                "watchOS": ("Watch7,1 26.4 (23T500)",),
+            }.items():
+                for version in versions:
+                    folder = (
+                        home
+                        / f"Library/Developer/Xcode/{platform} DeviceSupport"
+                        / version
+                    )
+                    folder.mkdir(parents=True)
+                    (folder / "Symbols").mkdir()
+
+            candidates = cleanup.inspect_device_support(home)
+
+            by_label = {item.label: item for item in candidates}
+            self.assertEqual(
+                by_label["iOS iPhone15,2 18.5 (22F76)"].action, "trash-path"
+            )
+            self.assertEqual(
+                by_label["iOS iPhone15,2 18.5 (22F76)"].risk, "destructive"
+            )
+            self.assertEqual(
+                by_label["iOS iPhone15,2 26.0 (23A100)"].action, "report-only"
+            )
+            self.assertEqual(
+                by_label["watchOS Watch7,1 26.4 (23T500)"].action, "report-only"
+            )
+
+    def test_dyld_cache_for_missing_runtime_is_actionable(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            root = home / "Library/Developer/CoreSimulator/Caches/dyld/25A100"
+            stale = root / "com.apple.CoreSimulator.SimRuntime.iOS-26-0.23A200"
+            current = root / "com.apple.CoreSimulator.SimRuntime.iOS-27-0.25A5316j"
+            stale.mkdir(parents=True)
+            current.mkdir(parents=True)
+            runtimes = [
                 {
-                    "identifier": "com.apple.CoreSimulator.SimRuntime.iOS-26-4",
-                    "name": "iOS 26.4",
-                    "version": "26.4",
-                    "availability": "(available)",
+                    "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.iOS-27-0",
+                    "build": "25A5316j",
                 }
             ]
-        }
 
-        candidates = cleanup.inspect_runtimes()
+            candidates = cleanup.inspect_dyld_caches(home, runtimes)
 
-        self.assertEqual(candidates[0].action, "report-only")
-        self.assertEqual(candidates[0].risk, "preserve")
+            self.assertEqual(len(candidates), 1)
+            self.assertIn("iOS-26-0.23A200", candidates[0].label)
+            self.assertEqual(candidates[0].action, "trash-path")
 
     @mock.patch.object(cleanup, "directory_size", return_value=42)
     @mock.patch.object(
@@ -323,6 +456,63 @@ class ApplyTests(unittest.TestCase):
             run.assert_any_call(
                 ["/usr/bin/xcrun", "simctl", "--set", "previews", "delete", "ABC"],
                 timeout=60,
+            )
+
+    def test_runtime_delete_requires_irreversible_confirmation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            audit = self.write_audit(
+                root,
+                [
+                    {
+                        "id": "candidate",
+                        "action": "simctl-runtime-delete",
+                        "path": None,
+                        "identifier": "AAAA-1111",
+                    }
+                ],
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "separate irreversible"):
+                cleanup.apply_cleanup(self.args(audit, root / "Trash"))
+
+    @mock.patch.object(
+        cleanup,
+        "run",
+        return_value=mock.Mock(returncode=0, stdout="", stderr=""),
+    )
+    def test_runtime_delete_invokes_simctl_runtime_delete(
+        self,
+        run: mock.Mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            audit = self.write_audit(
+                root,
+                [
+                    {
+                        "id": "candidate",
+                        "action": "simctl-runtime-delete",
+                        "path": None,
+                        "identifier": "AAAA-1111",
+                    }
+                ],
+            )
+
+            result = cleanup.apply_cleanup(
+                self.args(
+                    audit,
+                    root / "Trash",
+                    confirm_irreversible=cleanup.IRREVERSIBLE_PHRASE,
+                )
+            )
+
+            run.assert_any_call(
+                ["/usr/bin/xcrun", "simctl", "runtime", "delete", "AAAA-1111"],
+                timeout=300,
+            )
+            self.assertEqual(
+                result["results"][0]["result"], "runtime-deleted-by-simctl"
             )
 
     @mock.patch.object(cleanup, "process_uses_path", return_value=False)

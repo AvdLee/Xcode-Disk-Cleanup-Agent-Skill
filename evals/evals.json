@@ -39,6 +39,19 @@
         "Archives and dSYMs are preserve-by-default because exact distributed-build symbols can be irreplaceable.",
         "DeviceSupport is reported with symbolication and regeneration uncertainty, and no item is deleted without exact approval."
       ]
+    },
+    {
+      "id": 4,
+      "name": "stale-beta-platforms",
+      "prompt": "I install every Xcode beta and my Xcode Settings Components tab now lists several older beta platforms like iOS 27.0 build variants and older watchOS versions I never use. Figure out which simulator runtimes are actually stale, how many GB they hold, and get rid of the dead ones safely.",
+      "expected_output": "Runtime staleness is decided with simctl runtime list and per-Xcode SDK match evidence; only deletable, unchosen, superseded runtimes are proposed via `simctl runtime delete` after separate irreversible approval.",
+      "files": [],
+      "expectations": [
+        "Runtime inventory uses `simctl runtime list` (or equivalent) with per-runtime size, build, and deletable state rather than guessing from folder names.",
+        "A runtime is proposed as stale only with evidence that no installed Xcode SDK resolves to its build and a newer runtime supersedes it on the same platform.",
+        "Deletion is proposed exclusively through `xcrun simctl runtime delete <UUID>` with separate irreversible confirmation, never by removing CoreSimulator or AssetsV2 folders manually.",
+        "Runtimes still chosen by an installed SDK, or with no SDK-match evidence, remain report-only and are not deleted."
+      ]
     }
   ]
 }

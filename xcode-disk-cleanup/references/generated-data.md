@@ -39,6 +39,12 @@ Check `swift package --help` against the selected toolchain before recommending 
 command. Never delete `Package.resolved`, mirrors, registries, security
 configuration, or credentials.
 
+## CocoaPods cache
+
+`~/Library/Caches/CocoaPods` stores pod downloads that `pod install` re-fetches on
+demand. It is regenerable and safe to Trash. Project `Pods/` directories are part
+of the working tree and are never cleanup candidates.
+
 ## Documentation
 
 Downloaded documentation is usually recoverable, but manually imported DocSets may

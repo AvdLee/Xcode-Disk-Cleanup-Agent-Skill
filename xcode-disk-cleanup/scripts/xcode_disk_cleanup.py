@@ -58,6 +58,7 @@ def run(
     *,
     check: bool = False,
     timeout: int = 30,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         command,
@@ -65,16 +66,22 @@ def run(
         text=True,
         check=check,
         timeout=timeout,
+        env=env,
     )
 
 
 def directory_size(path: Path) -> int:
     if not path.exists():
         return 0
+    # `du` exits non-zero on permission errors but still prints a usable
+    # total for the readable portion, so accept any parsable output.
     result = run(["/usr/bin/du", "-sk", str(path)], timeout=180)
-    if result.returncode != 0 or not result.stdout.strip():
+    if not result.stdout.strip():
         return 0
-    return int(result.stdout.split()[0]) * 1024
+    try:
+        return int(result.stdout.split()[0]) * 1024
+    except ValueError:
+        return 0
 
 
 def fingerprint(path: Path, size: int | None = None) -> dict[str, int] | None:
@@ -325,42 +332,254 @@ def inspect_simulators(home: Path) -> list[Candidate]:
     return candidates
 
 
-def inspect_runtimes() -> list[Candidate]:
-    payload = simctl_json(["list", "--json", "runtimes"])
-    runtimes = payload.get("runtimes", [])
-    if not isinstance(runtimes, list):
-        return []
+def runtime_inventory() -> list[dict[str, Any]]:
+    """Installed runtimes from `simctl runtime list -j`, keyed entries flattened."""
+    payload = simctl_json(["runtime", "list", "-j"])
+    runtimes: list[dict[str, Any]] = []
+    for uuid, entry in payload.items():
+        if not isinstance(entry, dict):
+            continue
+        entry = dict(entry)
+        entry.setdefault("identifier", uuid)
+        runtimes.append(entry)
+    return runtimes
+
+
+CHOSEN_RUNTIME_PATTERN = re.compile(r"Chosen Runtime:\s*(\S+)")
+
+
+def sdk_chosen_runtime_builds(installations: list[dict[str, Any]]) -> set[str]:
+    """Runtime builds that installed Xcode SDKs resolve to via `runtime match list`."""
+    builds: set[str] = set()
+    for item in installations:
+        developer_dir = Path(item["path"]) / "Contents/Developer"
+        if not developer_dir.is_dir():
+            continue
+        result = run(
+            ["/usr/bin/xcrun", "simctl", "runtime", "match", "list"],
+            timeout=60,
+            env={**os.environ, "DEVELOPER_DIR": str(developer_dir)},
+        )
+        if result.returncode != 0:
+            continue
+        for build in CHOSEN_RUNTIME_PATTERN.findall(result.stdout):
+            if build != "(null)":
+                builds.add(build)
+    return builds
+
+
+def version_tuple(version: str) -> tuple[int, ...]:
+    return tuple(int(piece) for piece in re.findall(r"\d+", version)) or (0,)
+
+
+def inspect_runtimes(
+    runtimes: list[dict[str, Any]],
+    installations: list[dict[str, Any]],
+) -> list[Candidate]:
+    chosen_builds = sdk_chosen_runtime_builds(installations)
     candidates: list[Candidate] = []
     for runtime in runtimes:
-        if not isinstance(runtime, dict):
-            continue
         identifier = runtime.get("identifier")
         if not isinstance(identifier, str):
             continue
-        raw_path = runtime.get("bundlePath") or runtime.get("path")
-        path = Path(raw_path) if isinstance(raw_path, str) else None
-        size = directory_size(path) if path and path.exists() else 0
-        evidence = [
-            f"Identifier: {identifier}",
-            f"Version: {runtime.get('version', 'unknown')}",
-            f"Availability: {runtime.get('availability', 'unknown')}",
+        platform = str(runtime.get("platformIdentifier", "unknown"))
+        version = str(runtime.get("version", "0"))
+        build = str(runtime.get("build", ""))
+        size = runtime.get("sizeBytes")
+        size = size if isinstance(size, int) else 0
+        deletable = bool(runtime.get("deletable", False))
+        chosen = build in chosen_builds
+
+        siblings = [
+            other
+            for other in runtimes
+            if other is not runtime
+            and other.get("platformIdentifier") == platform
         ]
-        if path:
-            evidence.append(f"Bundle path: {path}")
+        newer_version = next(
+            (
+                other
+                for other in siblings
+                if version_tuple(str(other.get("version", "0"))) > version_tuple(version)
+            ),
+            None,
+        )
+        chosen_sibling_same_version = next(
+            (
+                other
+                for other in siblings
+                if str(other.get("version", "")) == version
+                and str(other.get("build", "")) in chosen_builds
+                and str(other.get("build", "")) != build
+            ),
+            None,
+        )
+
+        evidence = [
+            f"Runtime: {runtime.get('runtimeIdentifier', identifier)}",
+            f"Version: {version} ({build})",
+            f"Platform: {platform}",
+            f"Last used: {runtime.get('lastUsedAt', 'unknown')}",
+            f"Deletable via simctl: {deletable}",
+        ]
+
+        # A runtime is stale only with positive evidence: no installed SDK
+        # chooses it, and either a newer version exists for the platform or a
+        # same-version sibling (the newer beta case) is the one SDKs resolve to.
+        stale = (
+            deletable
+            and chosen_builds
+            and not chosen
+            and (newer_version is not None or chosen_sibling_same_version is not None)
+        )
+        if stale:
+            superseder = chosen_sibling_same_version or newer_version
+            evidence.append(
+                "Superseded by "
+                f"{superseder.get('version', '?')} ({superseder.get('build', '?')}) "
+                "on the same platform."
+            )
+            evidence.append("No installed Xcode SDK resolves to this runtime build.")
+            candidates.append(
+                Candidate(
+                    id=f"runtime-stale:{identifier}",
+                    category="Stale simulator runtime",
+                    label=f"{platform.rsplit('.', 1)[-1]} {version} ({build})",
+                    path=None,
+                    bytes=size,
+                    risk="destructive",
+                    action="simctl-runtime-delete",
+                    reason="No installed Xcode SDK uses this runtime and a newer one is installed.",
+                    evidence=evidence,
+                    regeneration_cost=(
+                        "Devices on this runtime stop booting, and restoring it "
+                        "requires a multi-gigabyte download."
+                    ),
+                    identifier=identifier,
+                )
+            )
+            continue
+
+        if chosen:
+            evidence.append("Chosen by an installed Xcode SDK.")
+        elif not chosen_builds:
+            evidence.append("SDK match information unavailable; treating as in use.")
         candidates.append(
             Candidate(
                 id=f"runtime:{identifier}",
                 category="Simulator runtime",
-                label=str(runtime.get("name", identifier)),
-                path=str(path.resolve(strict=False)) if path else None,
+                label=f"{platform.rsplit('.', 1)[-1]} {version} ({build})",
+                path=None,
                 bytes=size,
                 risk="preserve",
                 action="report-only",
-                reason="Runtime use must be checked against installed Xcodes and current projects.",
+                reason="An installed Xcode SDK may rely on this runtime.",
                 evidence=evidence,
                 regeneration_cost="The platform runtime must be downloaded again before compatible simulators can boot.",
                 identifier=identifier,
-                fingerprint=fingerprint(path, size) if path and path.exists() else None,
+            )
+        )
+    return candidates
+
+
+def inspect_orphan_runtime_volumes(runtimes: list[dict[str, Any]]) -> list[Candidate]:
+    volumes = Path("/Library/Developer/CoreSimulator/Volumes")
+    if not volumes.is_dir():
+        return []
+    known_mounts = {
+        str(runtime.get("mountPath", ""))
+        for runtime in runtimes
+    }
+    candidates: list[Candidate] = []
+    for entry in sorted(volumes.iterdir()):
+        if not entry.is_dir():
+            continue
+        if str(entry) in known_mounts:
+            continue
+        candidates.append(
+            Candidate(
+                id=f"runtime-orphan-volume:{entry.name}",
+                category="Orphan runtime volume",
+                label=entry.name,
+                path=str(entry),
+                bytes=directory_size(entry),
+                risk="preserve",
+                action="report-only",
+                reason="This mounted runtime volume is not reported by `simctl runtime list`.",
+                evidence=[
+                    "Run `xcrun simctl runtime scan-and-mount`, then delete the runtime by UUID.",
+                    "Never unmount or remove runtime volumes manually.",
+                ],
+                regeneration_cost="Recovered runtimes may be deletable through simctl afterwards.",
+            )
+        )
+    return candidates
+
+
+def inspect_dyld_caches(home: Path, runtimes: list[dict[str, Any]]) -> list[Candidate]:
+    root = home / "Library/Developer/CoreSimulator/Caches/dyld"
+    if not root.is_dir():
+        return []
+    installed = {
+        f"{runtime.get('runtimeIdentifier', '')}.{runtime.get('build', '')}"
+        for runtime in runtimes
+    }
+    candidates: list[Candidate] = []
+    for host_dir in sorted(root.iterdir()):
+        if not host_dir.is_dir():
+            continue
+        for cache in sorted(host_dir.iterdir()):
+            if not cache.is_dir() or not cache.name.startswith("com.apple.CoreSimulator.SimRuntime."):
+                continue
+            if cache.name in installed:
+                continue
+            candidates.append(
+                candidate_for_path(
+                    candidate_id=f"dyld-cache:{host_dir.name}:{cache.name}",
+                    category="Simulator dyld cache",
+                    label=cache.name,
+                    path=cache,
+                    risk="regenerable",
+                    action="trash-path",
+                    reason="No installed runtime matches this cached dyld image.",
+                    evidence=[f"Installed runtimes do not include {cache.name}."],
+                    regeneration_cost="Caches rebuild automatically when a matching runtime boots.",
+                )
+            )
+    return candidates
+
+
+DEVELOPER_ASSET_KEYWORDS = (
+    "MetalToolchain",
+    "DeveloperDocumentation",
+    "DeveloperTools",
+    "CoreDevice",
+)
+
+
+def inspect_managed_components() -> list[Candidate]:
+    assets_root = Path("/System/Library/AssetsV2")
+    if not assets_root.is_dir():
+        return []
+    candidates: list[Candidate] = []
+    for entry in sorted(assets_root.glob("com_apple_MobileAsset_*")):
+        if not entry.is_dir() or "SimulatorRuntime" in entry.name:
+            continue
+        if not any(keyword in entry.name for keyword in DEVELOPER_ASSET_KEYWORDS):
+            continue
+        component = entry.name.removeprefix("com_apple_MobileAsset_")
+        candidates.append(
+            Candidate(
+                id=f"managed-component:{component}",
+                category="Xcode-managed component",
+                label=component,
+                path=str(entry),
+                bytes=directory_size(entry),
+                risk="preserve",
+                action="report-only",
+                reason="Managed by Xcode and macOS asset services.",
+                evidence=["Remove through Xcode Settings → Components, never from disk."],
+                regeneration_cost="Xcode redownloads components on demand.",
             )
         )
     return candidates
@@ -440,8 +659,13 @@ def discover_installers(home: Path) -> set[Path]:
     return found
 
 
-def inspect_xcodes(home: Path, applications: Path) -> list[Candidate]:
-    installations = installed_xcodes(applications)
+def inspect_xcodes(
+    home: Path,
+    applications: Path,
+    installations: list[dict[str, Any]] | None = None,
+) -> list[Candidate]:
+    if installations is None:
+        installations = installed_xcodes(applications)
     selected = selected_xcode()
     candidates: list[Candidate] = []
     versions = {item["version"] for item in installations if item["version"]}
@@ -549,24 +773,142 @@ def inspect_archives(home: Path) -> list[Candidate]:
     return candidates
 
 
+DEVICE_SUPPORT_PLATFORMS = ("iOS", "watchOS", "tvOS", "visionOS", "XROS")
+
+
 def inspect_device_support(home: Path) -> list[Candidate]:
-    root = home / "Library/Developer/Xcode/iOS DeviceSupport"
+    candidates: list[Candidate] = []
+    for platform in DEVICE_SUPPORT_PLATFORMS:
+        root = home / f"Library/Developer/Xcode/{platform} DeviceSupport"
+        if not root.is_dir():
+            continue
+        entries = [
+            entry
+            for entry in sorted(root.iterdir())
+            if entry.is_dir() and not entry.is_symlink()
+        ]
+        if not entries:
+            continue
+        newest = max(entries, key=lambda entry: version_tuple(entry.name))
+        for entry in entries:
+            if entry is newest:
+                candidates.append(
+                    candidate_for_path(
+                        candidate_id=f"device-support:{platform}:{entry.name}",
+                        category="DeviceSupport",
+                        label=f"{platform} {entry.name}",
+                        path=entry,
+                        risk="preserve",
+                        action="report-only",
+                        reason=f"Newest {platform} symbol set; needed for current devices.",
+                        evidence=[f"Newest version folder under {platform} DeviceSupport."],
+                        regeneration_cost="Requires reconnecting a compatible device.",
+                    )
+                )
+                continue
+            candidates.append(
+                candidate_for_path(
+                    candidate_id=f"device-support:{platform}:{entry.name}",
+                    category="DeviceSupport",
+                    label=f"{platform} {entry.name}",
+                    path=entry,
+                    risk="destructive",
+                    action="trash-path",
+                    reason=f"Older than the newest {platform} symbol set ({newest.name}).",
+                    evidence=[
+                        f"Newest sibling: {newest.name}",
+                        "Symbols for retired OS builds may be unrecoverable once removed.",
+                    ],
+                    regeneration_cost=(
+                        "Symbolicating crashes from this exact OS build needs a device "
+                        "on that build; old symbols may be unavailable."
+                    ),
+                )
+            )
+    return candidates
+
+
+def inspect_logs(home: Path) -> list[Candidate]:
+    targets = [
+        (home / "Library/Logs/CoreSimulator", "CoreSimulator logs", "coresimulator-logs"),
+        (home / "Library/Developer/Xcode/iOS Device Logs", "iOS device logs", "ios-device-logs"),
+    ]
+    candidates: list[Candidate] = []
+    for path, label, candidate_id in targets:
+        if not path.is_dir():
+            continue
+        candidates.append(
+            candidate_for_path(
+                candidate_id=f"logs:{candidate_id}",
+                category="Diagnostic logs",
+                label=label,
+                path=path,
+                risk="regenerable",
+                action="trash-path",
+                reason="Diagnostic logs accumulate indefinitely and regrow on demand.",
+                evidence=["Keep only if an active bug investigation depends on them."],
+                regeneration_cost="Historical diagnostics are lost; new logs are written automatically.",
+            )
+        )
+    return candidates
+
+
+def inspect_xctest_devices(home: Path) -> list[Candidate]:
+    root = home / "Library/Developer/XCTestDevices"
     if not root.is_dir():
         return []
     return [
         candidate_for_path(
-            candidate_id=f"device-support:{entry.name}",
-            category="DeviceSupport",
+            candidate_id="xctest-devices",
+            category="XCTest devices",
+            label="Cloned simulators from test runs",
+            path=root,
+            risk="regenerable",
+            action="trash-path",
+            reason="Test-run simulator clones are recreated on the next test run.",
+            evidence=["Skip while a test run is in progress."],
+            regeneration_cost="The next parallel test run re-clones its simulators.",
+        )
+    ]
+
+
+def inspect_legacy_docsets(home: Path) -> list[Candidate]:
+    root = home / "Library/Developer/Shared/Documentation/DocSets"
+    if not root.is_dir():
+        return []
+    return [
+        candidate_for_path(
+            candidate_id=f"docset:{entry.name}",
+            category="Legacy DocSet",
             label=entry.name,
             path=entry,
-            risk="preserve",
-            action="report-only",
-            reason="Device symbols can be needed for historical crash symbolication.",
-            evidence=["Review against devices and OS versions still supported."],
-            regeneration_cost="Requires reconnecting a compatible device; old symbols may be unavailable.",
+            risk="destructive",
+            action="trash-path",
+            reason="Legacy downloadable DocSets are no longer distributed by current Xcodes.",
+            evidence=["Confirm no offline documentation workflow depends on this DocSet."],
+            regeneration_cost="Old DocSets may be impossible to download again.",
         )
         for entry in sorted(root.iterdir())
         if entry.is_dir() and not entry.is_symlink()
+    ]
+
+
+def inspect_cocoapods(home: Path) -> list[Candidate]:
+    root = home / "Library/Caches/CocoaPods"
+    if not root.is_dir():
+        return []
+    return [
+        candidate_for_path(
+            candidate_id="cocoapods:cache",
+            category="CocoaPods cache",
+            label="CocoaPods download cache",
+            path=root,
+            risk="regenerable",
+            action="trash-path",
+            reason="Pod downloads are re-fetched by `pod install` when needed.",
+            evidence=["Project Pods/ directories are untouched."],
+            regeneration_cost="Pods must be downloaded again on the next install.",
+        )
     ]
 
 
@@ -620,15 +962,24 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
     home = Path(args.home).expanduser().resolve()
     applications = Path(args.applications).expanduser().resolve()
     scan_roots = [Path(value) for value in args.scan_root]
+    installations = installed_xcodes(applications)
+    runtimes = runtime_inventory()
     candidates = [
         *inspect_derived_data(home),
         *inspect_documentation(home),
         *inspect_package_caches(home),
         *inspect_simulators(home),
-        *inspect_runtimes(),
-        *inspect_xcodes(home, applications),
+        *inspect_runtimes(runtimes, installations),
+        *inspect_orphan_runtime_volumes(runtimes),
+        *inspect_dyld_caches(home, runtimes),
+        *inspect_managed_components(),
+        *inspect_xcodes(home, applications, installations),
         *inspect_archives(home),
         *inspect_device_support(home),
+        *inspect_logs(home),
+        *inspect_xctest_devices(home),
+        *inspect_legacy_docsets(home),
+        *inspect_cocoapods(home),
         *inspect_project_builds(scan_roots, home),
     ]
     candidates.sort(key=lambda item: (-item.bytes, item.category, item.id))
@@ -760,6 +1111,19 @@ def apply_cleanup(args: argparse.Namespace) -> dict[str, Any]:
             if result.returncode != 0:
                 raise RuntimeError(result.stderr.strip() or f"simctl failed for {identifier}")
             results.append({"id": item["id"], "result": "deleted-by-simctl"})
+        elif action == "simctl-runtime-delete":
+            identifier = item.get("identifier")
+            if not identifier:
+                raise RuntimeError(f"Missing runtime identifier for {item['id']}")
+            result = run(
+                ["/usr/bin/xcrun", "simctl", "runtime", "delete", identifier],
+                timeout=300,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(
+                    result.stderr.strip() or f"simctl runtime delete failed for {identifier}"
+                )
+            results.append({"id": item["id"], "result": "runtime-deleted-by-simctl"})
         elif action == "swiftpm-purge-cache":
             help_result = run(["/usr/bin/swift", "package", "--help"])
             if "purge-cache" not in help_result.stdout:

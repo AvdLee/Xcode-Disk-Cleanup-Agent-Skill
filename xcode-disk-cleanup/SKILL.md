@@ -3,7 +3,8 @@ name: xcode-disk-cleanup
 description: >-
   Audit and safely clean Xcode-related developer storage on macOS. Use whenever a
   developer mentions low disk space, Xcode storage, DerivedData, simulator devices
-  or runtimes, DeviceSupport, archives, dSYMs, SwiftPM caches, project .build
+  or runtimes, stale beta platforms in Xcode Settings, DeviceSupport, archives,
+  dSYMs, SwiftPM or CocoaPods caches, simulator dyld caches, project .build
   folders, downloaded Xcode DMGs/XIPs, duplicate Xcode installers, or old Xcode
   applications. Always measure first, report recoverable GiB with evidence, and
   obtain explicit itemized approval before any mutation.
@@ -56,9 +57,12 @@ Read both generated files:
 - `.xcode-disk-cleanup-audit/report.md`
 - `.xcode-disk-cleanup-audit/audit.json`
 
-The script audits DerivedData, compiler caches, documentation caches, SwiftPM,
-simulator devices, Xcode installers, installed Xcodes, archives, DeviceSupport,
-and explicitly requested project roots.
+The script audits DerivedData, compiler caches, documentation caches, SwiftPM and
+CocoaPods caches, simulator devices and runtimes (including stale superseded beta
+runtimes), orphan runtime volumes, simulator dyld caches, Xcode-managed components,
+Xcode installers, installed Xcodes, archives, DeviceSupport for every platform,
+diagnostic logs, XCTest device clones, legacy DocSets, and explicitly requested
+project roots.
 
 ### 3. Validate and enrich findings
 
@@ -66,9 +70,9 @@ Use the category router:
 
 | Finding | Reference |
 |---|---|
-| DerivedData, module caches, project `.build` | `references/generated-data.md` |
-| Simulator devices and runtimes | `references/simulators.md` |
-| Archives, dSYMs, DeviceSupport | `references/release-artifacts.md` |
+| DerivedData, module caches, project `.build`, CocoaPods | `references/generated-data.md` |
+| Simulator devices, runtimes, dyld caches, XCTest clones | `references/simulators.md` |
+| Archives, dSYMs, DeviceSupport, logs, DocSets | `references/release-artifacts.md` |
 | Xcode DMGs/XIPs and installed Xcodes | `references/xcode-installations.md` |
 | Confirmation and deletion behavior | `references/safety-model.md` |
 
@@ -107,11 +111,17 @@ python3 "${SKILL_DIR}/scripts/xcode_disk_cleanup.py" apply \
   --output .xcode-disk-cleanup-audit/cleanup-result.json
 ```
 
-Simulator deletions are irreversible and require a second approval plus:
+Simulator device and runtime deletions are irreversible and require a second
+approval plus:
 
 ```text
 --confirm-irreversible I_APPROVED_IRREVERSIBLE_SIMULATOR_DELETION
 ```
+
+A stale runtime is only proposed when `simctl` reports it deletable, no installed
+Xcode SDK resolves to its build, and a newer runtime supersedes it on the same
+platform. This is the pattern behind leftover beta platforms in Xcode Settings →
+Components after installing a newer Xcode beta.
 
 Do not pass either confirmation phrase unless the corresponding user approval is
 present in the conversation.

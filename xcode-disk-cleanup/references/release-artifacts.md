@@ -27,13 +27,31 @@ Apple references:
 ## DeviceSupport
 
 DeviceSupport contains symbols and support data tied to device OS releases and
-architectures. Reconnecting a compatible device may regenerate support, but old
-symbols may be impossible to recover.
+architectures. Every platform keeps its own folder: `iOS DeviceSupport`,
+`watchOS DeviceSupport`, `tvOS DeviceSupport`, and `visionOS`/`XROS`
+`DeviceSupport` under `~/Library/Developer/Xcode/`.
 
-Treat DeviceSupport as preserve-by-default unless:
+The scanner keeps the newest symbol set per platform and proposes older versions
+for Trash. This mirrors what developers expect: symbols for OS builds their
+devices no longer run rarely earn their multi-gigabyte footprint. Still treat the
+proposal as destructive, because:
 
-- The exact OS/device is no longer supported
-- Historical symbolication is not required
-- The user accepts regeneration or permanent loss
+- Reconnecting a device regenerates support only for OS builds still in use
+- Symbolicating a crash from a retired OS build needs that exact symbol set
+- Old symbols may be impossible to download again
 
-Never represent its entire size as an automatic cleanup opportunity.
+Confirm the user no longer symbolicates crashes from those OS versions before
+approving.
+
+## Diagnostic logs
+
+`~/Library/Logs/CoreSimulator` and `~/Library/Developer/Xcode/iOS Device Logs`
+grow without bound and regrow automatically. Safe to Trash unless an active bug
+investigation depends on historical logs.
+
+## Legacy DocSets
+
+`~/Library/Developer/Shared/Documentation/DocSets` holds documentation bundles
+from the era of downloadable DocSets. Current Xcodes no longer distribute them,
+and removed DocSets may be impossible to download again — confirm no offline
+documentation workflow depends on them before approving.
