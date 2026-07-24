@@ -219,26 +219,6 @@ def inspect_derived_data(home: Path) -> list[Candidate]:
                     )
                 )
 
-    shared_cache_names = {
-        "ModuleCache.noindex": "Compiler modules rebuild on future builds.",
-        "SDKExplicitPrecompiledModules": "SDK modules rebuild on future builds.",
-    }
-    for name, cost in shared_cache_names.items():
-        path = root / name
-        if path.is_dir():
-            candidates.append(
-                candidate_for_path(
-                    candidate_id=f"shared-cache:{name}",
-                    category="Shared build cache",
-                    label=name,
-                    path=path,
-                    risk="regenerable",
-                    action="trash-path",
-                    reason="Shared compiler cache; safe to regenerate but expensive for active work.",
-                    evidence=["Shared by multiple Xcode projects."],
-                    regeneration_cost=cost,
-                )
-            )
     return candidates
 
 
@@ -269,25 +249,6 @@ def inspect_documentation(home: Path) -> list[Candidate]:
             regeneration_cost="None for current documentation; only outdated unused caches are removed.",
         )
         for entry in versions[:-1]
-    ]
-
-
-def inspect_package_caches(home: Path) -> list[Candidate]:
-    swiftpm = home / "Library/Caches/org.swift.swiftpm"
-    if not swiftpm.is_dir():
-        return []
-    return [
-        candidate_for_path(
-            candidate_id="swiftpm:global-cache",
-            category="SwiftPM cache",
-            label="Global SwiftPM download cache",
-            path=swiftpm,
-            risk="regenerable",
-            action="swiftpm-purge-cache",
-            reason="SwiftPM can recreate repository and artifact downloads.",
-            evidence=["Prefer `swift package purge-cache` when supported by the selected toolchain."],
-            regeneration_cost="Dependencies must be downloaded again; concurrent builds may fail.",
-        )
     ]
 
 
@@ -1152,7 +1113,6 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
     candidates = [
         *inspect_derived_data(home),
         *inspect_documentation(home),
-        *inspect_package_caches(home),
         *inspect_simulators(home),
         *inspect_runtimes(runtimes, installations),
         *inspect_orphan_runtime_volumes(runtimes),
@@ -1309,14 +1269,6 @@ def apply_cleanup(args: argparse.Namespace) -> dict[str, Any]:
                     result.stderr.strip() or f"simctl runtime delete failed for {identifier}"
                 )
             results.append({"id": item["id"], "result": "runtime-deleted-by-simctl"})
-        elif action == "swiftpm-purge-cache":
-            help_result = run(["/usr/bin/swift", "package", "--help"])
-            if "purge-cache" not in help_result.stdout:
-                raise RuntimeError("Selected Swift toolchain does not support `swift package purge-cache`.")
-            result = run(["/usr/bin/swift", "package", "purge-cache"], timeout=600)
-            if result.returncode != 0:
-                raise RuntimeError(result.stderr.strip() or "SwiftPM cache purge failed.")
-            results.append({"id": item["id"], "result": "purged-by-swiftpm"})
         else:
             raise RuntimeError(f"Unsupported action: {action}")
 

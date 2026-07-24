@@ -4,7 +4,7 @@ description: >-
   Audit and safely clean Xcode-related developer storage on macOS. Use whenever a
   developer mentions low disk space, Xcode storage, DerivedData, simulator devices
   or runtimes, stale beta platforms in Xcode Settings, DeviceSupport, archives,
-  dSYMs, SwiftPM or CocoaPods caches, simulator dyld caches, project .build
+  dSYMs, CocoaPods caches, simulator dyld caches, project .build
   folders, downloaded Xcode DMGs/XIPs, duplicate Xcode installers, or old Xcode
   applications. Always measure first, report recoverable GiB with evidence, and
   obtain explicit itemized approval before any mutation.
@@ -57,12 +57,17 @@ Read both generated files:
 - `.xcode-disk-cleanup-audit/report.md`
 - `.xcode-disk-cleanup-audit/audit.json`
 
-The script audits DerivedData, compiler caches, documentation caches, SwiftPM and
-CocoaPods caches, simulator devices and runtimes (including stale superseded beta
-runtimes), orphan runtime volumes, simulator dyld caches, Xcode-managed components,
-Xcode installers, installed Xcodes, archives, DeviceSupport for every platform,
-diagnostic logs, XCTest device clones, legacy DocSets, and explicitly requested
-project roots.
+The script audits DerivedData, documentation caches, CocoaPods caches, simulator
+devices and runtimes (including stale superseded beta runtimes), orphan runtime
+volumes, simulator dyld caches, Xcode-managed components, Xcode installers,
+installed Xcodes, archives (including never-distributed orphans), DeviceSupport
+for every platform, diagnostic logs, XCTest device clones, legacy DocSets, and
+explicitly requested project roots.
+
+Shared compiler caches (`ModuleCache.noindex`, precompiled SDK modules) and the
+global SwiftPM download cache are deliberately out of scope: they are always in
+use on an active development machine, and clearing them trades real build-time
+pain for little lasting space. Do not propose them.
 
 ### 3. Validate and enrich findings
 
@@ -87,9 +92,19 @@ Sort by recoverable GiB and show:
 2. Category and exact path/identifier
 3. Recoverable GiB
 4. Risk: regenerable, destructive, or preserve
-5. Evidence
+5. Evidence — a short "why this is stale" phrase (age in days, superseded-by,
+   missing workspace), not just a classification label
 6. What must be rebuilt, redownloaded, or permanently lost
 7. Proposed action
+
+Keep the proposal scannable:
+
+- Render folder candidates as clickable `file://` links so the user can inspect
+  them before approving.
+- Hide individual items below roughly 0.5 GiB; the full itemized list stays in
+  `report.md` for reference. Do not pad the proposal with a "small items" bucket —
+  it adds questions, not signal.
+- Group unavailable simulators into a table per runtime.
 
 Include:
 

@@ -16,7 +16,6 @@ Protect:
 
 - Active workspaces and builds
 - Custom DerivedData whose owner is unknown
-- Shared module caches during concurrent agent activity
 
 Xcode may use a custom path from Settings → Locations. Do not assume every
 DerivedData directory is below the default home directory.
@@ -32,12 +31,19 @@ Prefer supported scoped commands when available:
 ```bash
 swift package clean
 swift package reset
-swift package purge-cache
 ```
 
 Check `swift package --help` against the selected toolchain before recommending a
 command. Never delete `Package.resolved`, mirrors, registries, security
 configuration, or credentials.
+
+## Out of scope: shared compiler and SwiftPM caches
+
+Shared compiler caches (`ModuleCache.noindex`, precompiled SDK modules) and the
+global SwiftPM download cache (`~/Library/Caches/org.swift.swiftpm`) are not
+cleanup candidates. On an active development machine they are always needed,
+regenerate into the same space within days, and clearing them slows every
+subsequent build. Do not report or propose them.
 
 ## CocoaPods cache
 

@@ -17,7 +17,7 @@ storage, from build caches to forgotten beta platform runtimes. Each finding is
 reported with its size in GiB, supporting evidence, and the cost of regenerating
 or permanently losing it.
 
-- Xcode DerivedData and shared compiler caches
+- Xcode DerivedData for missing or stale workspaces
 - Project-local `.build` and `.derived-data` folders
 - Available and unavailable Simulator devices
 - SwiftUI Preview device sets
@@ -27,7 +27,6 @@ or permanently losing it.
 - Simulator dyld caches left behind by removed runtimes
 - Simulator clones created by parallel test runs (`XCTestDevices`)
 - CoreSimulator and iOS device diagnostic logs
-- SwiftPM download caches
 - CocoaPods download caches
 - Documentation caches and legacy DocSets
 - Archives, dSYMs, and per-platform DeviceSupport symbols (iOS, watchOS, tvOS,
@@ -110,7 +109,7 @@ Trash; space is not claimed as recovered until measured with `df`.
 - Read-only by default
 - Deterministic JSON and Markdown reports
 - APFS-aware candidate versus actual recovery accounting
-- Supported `simctl`, SwiftPM, and Xcode workflows
+- Supported `simctl` and Xcode workflows
 - Evidence-based Xcode installer matching
 - Multi-signal suggestions for potentially unused Xcode versions
 - Path identity and running-process revalidation before cleanup
