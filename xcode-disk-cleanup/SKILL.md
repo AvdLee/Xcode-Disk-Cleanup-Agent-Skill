@@ -105,6 +105,10 @@ Keep the proposal scannable:
   `report.md` for reference. Do not pad the proposal with a "small items" bucket —
   it adds questions, not signal.
 - Group unavailable simulators into a table per runtime.
+- Give every category its own subheading with its total size, even small ones
+  like documentation caches or orphan archives. A category summarized in a
+  trailing paragraph under another category's table gets overlooked, and
+  overlooked items cannot be meaningfully approved.
 
 Include:
 
