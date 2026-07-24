@@ -114,30 +114,86 @@ class AuditTests(unittest.TestCase):
             self.assertEqual(installer_candidate.action, "trash-path")
             self.assertEqual(installer_candidate.risk, "destructive")
 
-    def test_archives_remain_report_only(self) -> None:
+    @staticmethod
+    def write_archive(
+        home: Path,
+        folder: str,
+        name: str,
+        version: str,
+        build: str,
+        *,
+        distributed: bool,
+        creation: "dt.datetime | None" = None,
+    ) -> Path:
+        archive = (
+            home / f"Library/Developer/Xcode/Archives/{folder}/{name}.xcarchive"
+        )
+        archive.mkdir(parents=True)
+        info: dict = {
+            "Name": name.split(" ")[0],
+            "ApplicationProperties": {
+                "CFBundleIdentifier": f"com.example.{name.split(' ')[0]}",
+                "CFBundleShortVersionString": version,
+                "CFBundleVersion": build,
+            },
+        }
+        if creation:
+            info["CreationDate"] = creation
+        if distributed:
+            info["Distributions"] = [
+                {
+                    "destination": "upload",
+                    "uploadDestination": "App Store",
+                    "uploadEvent": {"date": "2026-07-01T10:00:00Z", "state": "success"},
+                }
+            ]
+        with (archive / "Info.plist").open("wb") as stream:
+            plistlib.dump(info, stream)
+        return archive
+
+    def test_distributed_archives_remain_report_only(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             home = Path(temporary)
-            archive = (
-                home
-                / "Library/Developer/Xcode/Archives/2026-07-24/App.xcarchive"
-            )
-            archive.mkdir(parents=True)
-            with (archive / "Info.plist").open("wb") as stream:
-                plistlib.dump(
-                    {
-                        "Name": "App",
-                        "ApplicationProperties": {
-                            "CFBundleShortVersionString": "1.0",
-                            "CFBundleVersion": "42",
-                        },
-                    },
-                    stream,
-                )
+            self.write_archive(home, "2026-07-24", "App A", "1.0", "42", distributed=True)
 
             candidates = cleanup.inspect_archives(home)
 
             self.assertEqual(candidates[0].action, "report-only")
             self.assertEqual(candidates[0].risk, "preserve")
+            self.assertTrue(
+                any("Distributed" in item for item in candidates[0].evidence)
+            )
+
+    def test_undistributed_superseded_archive_is_orphan(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            self.write_archive(home, "2026-06-01", "App old", "1.0", "40", distributed=False)
+            self.write_archive(home, "2026-07-24", "App new", "1.1", "45", distributed=True)
+
+            candidates = cleanup.inspect_archives(home)
+
+            orphan = next(
+                item for item in candidates if item.category == "Orphan archive"
+            )
+            self.assertEqual(orphan.action, "trash-path")
+            self.assertEqual(orphan.risk, "destructive")
+            self.assertTrue(
+                any("Superseded by 1.1 (45)" in item for item in orphan.evidence)
+            )
+            newest = next(
+                item for item in candidates if item.category == "Archive"
+            )
+            self.assertEqual(newest.action, "report-only")
+
+    def test_undistributed_newest_archive_is_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            self.write_archive(home, "2026-07-24", "App only", "2.0", "50", distributed=False)
+
+            candidates = cleanup.inspect_archives(home)
+
+            self.assertEqual(candidates[0].action, "report-only")
+            self.assertIn("pending distribution", candidates[0].reason)
 
     RUNTIME_BETA_OLD = {
         "identifier": "AAAA-1111",

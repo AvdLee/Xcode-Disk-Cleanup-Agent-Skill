@@ -13,11 +13,28 @@ Preserve by default:
 - Any archive without a verified immutable backup of the archive and dSYMs
 
 Matching app version and build numbers do not prove two archives are interchangeable.
-Only propose deletion when the user confirms the build was not distributed or the
-exact artifact is safely backed up.
+Only propose deletion when the archive was provably never distributed or the exact
+artifact is safely backed up.
 
-Prefer review in Xcode Organizer. The scanner reports archive metadata but marks
-archives `report-only`.
+### Distribution evidence
+
+Xcode Organizer records every upload and export in the archive's `Info.plist`
+under the `Distributions` key (destination, event date, state). The scanner uses
+this to split archives into three classes:
+
+- **Distributed** (`Distributions` present): preserve, report-only. Its dSYMs may
+  be required to symbolicate crashes from the shipped build.
+- **Orphan** (never distributed and a newer archive of the same app exists):
+  proposed for Trash. Nothing was shipped from it, so no crash report can ever
+  need its dSYMs; the newer archive covers the "I still have an archive" comfort.
+- **Newest undistributed**: preserve, report-only — it may be pending
+  distribution.
+
+The `Distributions` record only reflects this Mac. If the user distributes the
+same archives from another machine or CI, confirm before approving orphan
+archives.
+
+Prefer review in Xcode Organizer for anything uncertain.
 
 Apple references:
 

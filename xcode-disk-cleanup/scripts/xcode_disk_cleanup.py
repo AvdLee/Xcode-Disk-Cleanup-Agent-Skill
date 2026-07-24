@@ -101,6 +101,19 @@ def gibibytes(value: int) -> str:
     return f"{value / (1024 ** 3):.2f} GiB"
 
 
+def days_unchanged(path: Path, reference: dt.datetime | None = None) -> int | None:
+    """Whole days since the given timestamp, or the path's own mtime."""
+    moment = reference
+    if moment is None:
+        try:
+            moment = dt.datetime.fromtimestamp(path.stat().st_mtime, dt.timezone.utc)
+        except OSError:
+            return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=dt.timezone.utc)
+    return max(0, (dt.datetime.now(dt.timezone.utc) - moment).days)
+
+
 def safe_plist(path: Path) -> dict[str, Any]:
     try:
         with path.open("rb") as stream:
@@ -151,8 +164,14 @@ def inspect_derived_data(home: Path) -> list[Candidate]:
         workspace = metadata.get("WorkspacePath")
         last_accessed = metadata.get("LastAccessedDate")
         evidence = []
+        age = days_unchanged(
+            entry,
+            last_accessed if isinstance(last_accessed, dt.datetime) else None,
+        )
         if last_accessed:
             evidence.append(f"Last accessed: {last_accessed}")
+        if age is not None:
+            evidence.append(f"Unchanged for {age} days.")
 
         if isinstance(workspace, str):
             workspace_path = Path(workspace).expanduser()
@@ -182,6 +201,10 @@ def inspect_derived_data(home: Path) -> list[Candidate]:
         }:
             children = {child.name for child in entry.iterdir()}
             if children and children.issubset({"SourcePackages", "Logs"}):
+                package_age = days_unchanged(entry)
+                package_evidence = [f"Contents: {', '.join(sorted(children))}"]
+                if package_age is not None:
+                    package_evidence.append(f"Unchanged for {package_age} days.")
                 candidates.append(
                     candidate_for_path(
                         candidate_id=f"derived-packages-only:{entry.name}",
@@ -191,7 +214,7 @@ def inspect_derived_data(home: Path) -> list[Candidate]:
                         risk="regenerable",
                         action="trash-path",
                         reason="No Xcode workspace metadata or build products were found.",
-                        evidence=[f"Contents: {', '.join(sorted(children))}"],
+                        evidence=package_evidence,
                         regeneration_cost="Dependencies must be resolved or downloaded again.",
                     )
                 )
@@ -238,9 +261,12 @@ def inspect_documentation(home: Path) -> list[Candidate]:
             path=entry,
             risk="regenerable",
             action="trash-path",
-            reason=f"A newer cache ({latest.name}) exists.",
+            reason=(
+                f"A newer cache ({latest.name}) exists. The same documentation stays "
+                "available; only the outdated unused copy is removed."
+            ),
             evidence=[f"Newest sibling cache: {latest.name}"],
-            regeneration_cost="Offline documentation may need to be downloaded again.",
+            regeneration_cost="None for current documentation; only outdated unused caches are removed.",
         )
         for entry in versions[:-1]
     ]
@@ -804,30 +830,129 @@ def inspect_xcodes(
     return candidates
 
 
+def archive_distribution_summary(info: dict[str, Any]) -> str | None:
+    """Human-readable summary of the archive's Organizer distribution history."""
+    distributions = info.get("Distributions")
+    if not isinstance(distributions, list) or not distributions:
+        return None
+    summaries: list[str] = []
+    for entry in distributions:
+        if not isinstance(entry, dict):
+            continue
+        destination = entry.get("uploadDestination") or entry.get("destination", "unknown")
+        event = entry.get("uploadEvent") or entry.get("exportEvent") or {}
+        date = event.get("date", "") if isinstance(event, dict) else ""
+        summaries.append(f"{destination} {date}".strip())
+    return "; ".join(summaries) if summaries else "recorded"
+
+
 def inspect_archives(home: Path) -> list[Candidate]:
     root = home / "Library/Developer/Xcode/Archives"
     if not root.is_dir():
         return []
-    candidates: list[Candidate] = []
+
+    entries: list[dict[str, Any]] = []
     for archive in sorted(root.glob("*/*.xcarchive")):
         info = safe_plist(archive / "Info.plist")
-        app = info.get("Name", archive.stem)
         properties = info.get("ApplicationProperties", {})
         if not isinstance(properties, dict):
             properties = {}
-        version = properties.get("CFBundleShortVersionString", "?")
-        build = properties.get("CFBundleVersion", "?")
+        creation = info.get("CreationDate")
+        entries.append(
+            {
+                "path": archive,
+                "app_key": properties.get("CFBundleIdentifier")
+                or str(info.get("Name", archive.stem)),
+                "name": str(info.get("Name", archive.stem)),
+                "version": str(properties.get("CFBundleShortVersionString", "?")),
+                "build": str(properties.get("CFBundleVersion", "?")),
+                "creation": creation if isinstance(creation, dt.datetime) else None,
+                "distribution": archive_distribution_summary(info),
+            }
+        )
+
+    newest_by_app: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        current = newest_by_app.get(entry["app_key"])
+        entry_key = (
+            version_tuple(entry["version"]),
+            version_tuple(entry["build"]),
+            entry["creation"] or dt.datetime.min,
+        )
+        if current is None or entry_key > (
+            version_tuple(current["version"]),
+            version_tuple(current["build"]),
+            current["creation"] or dt.datetime.min,
+        ):
+            newest_by_app[entry["app_key"]] = entry
+
+    candidates: list[Candidate] = []
+    for entry in entries:
+        archive = entry["path"]
+        label = f"{entry['name']} {entry['version']} ({entry['build']})"
+        newest = newest_by_app[entry["app_key"]]
+        superseded = newest is not entry
+        evidence = [f"Archive: {archive.name}"]
+        if entry["creation"]:
+            evidence.append(f"Archived: {entry['creation']:%Y-%m-%d}")
+
+        if entry["distribution"]:
+            evidence.append(f"Distributed: {entry['distribution']}")
+            if superseded:
+                evidence.append(
+                    f"A newer archive exists ({newest['version']} ({newest['build']}))."
+                )
+            candidates.append(
+                candidate_for_path(
+                    candidate_id=f"archive:{archive.parent.name}:{archive.name}",
+                    category="Archive",
+                    label=label,
+                    path=archive,
+                    risk="preserve",
+                    action="report-only",
+                    reason="This build was uploaded or exported; its dSYMs may be needed for crash symbolication.",
+                    evidence=evidence,
+                    regeneration_cost="Irreplaceable for a distributed build unless an immutable backup exists.",
+                )
+            )
+            continue
+
+        evidence.append("Never uploaded or exported from this Mac (no Organizer distribution record).")
+        if superseded:
+            evidence.append(
+                f"Superseded by {newest['version']} ({newest['build']})"
+                + (
+                    f" archived {newest['creation']:%Y-%m-%d}."
+                    if newest["creation"]
+                    else "."
+                )
+            )
+            candidates.append(
+                candidate_for_path(
+                    candidate_id=f"archive-orphan:{archive.parent.name}:{archive.name}",
+                    category="Orphan archive",
+                    label=label,
+                    path=archive,
+                    risk="destructive",
+                    action="trash-path",
+                    reason="Never distributed and a newer archive of the same app exists; no shipped build depends on these dSYMs.",
+                    evidence=evidence,
+                    regeneration_cost="The exact binary cannot be rebuilt bit-identically, but nothing was shipped from it.",
+                )
+            )
+            continue
+
         candidates.append(
             candidate_for_path(
                 candidate_id=f"archive:{archive.parent.name}:{archive.name}",
                 category="Archive",
-                label=f"{app} {version} ({build})",
+                label=label,
                 path=archive,
                 risk="preserve",
                 action="report-only",
-                reason="Archives contain exact binaries and dSYMs required for crash symbolication.",
-                evidence=[f"Archive: {archive.name}"],
-                regeneration_cost="Irreplaceable for a distributed build unless an immutable backup exists.",
+                reason="Never distributed, but it is the newest archive for this app and may be pending distribution.",
+                evidence=evidence,
+                regeneration_cost="Irreplaceable if a distribution is still planned from this exact build.",
             )
         )
     return candidates

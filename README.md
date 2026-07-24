@@ -32,6 +32,8 @@ or permanently losing it.
 - Documentation caches and legacy DocSets
 - Archives, dSYMs, and per-platform DeviceSupport symbols (iOS, watchOS, tvOS,
   visionOS), keeping the newest symbol set per platform
+- Orphan archives that were never uploaded or exported and are superseded by a
+  newer archive of the same app
 - Xcode-managed components such as the Metal Toolchain and downloadable
   documentation assets
 - Downloaded Xcode `.xip`, `.dmg`, and `.zip` installers
