@@ -5,14 +5,23 @@
 A request to inspect, audit, find space, or clean Xcode authorizes read-only
 discovery. A category-level request after an audit may select the current
 eligible candidates, but mutation begins only after the agent presents the
-fully enumerated, current candidate ID set and the user explicitly confirms
-that exact frozen set.
+fully enumerated, current candidate ID set. A subsequent unambiguous request
+to remove that category is the single approval of that exact frozen set. After
+revalidation, execute in the same turn; no magic phrase, repeated IDs, or
+additional confirmation is required.
+
+An irreversible Simulator operation still needs explicit category-specific
+intent after its identifiers and permanent data loss are shown. That intent may
+be a distinct clause in the same message that approves ordinary cleanup; it
+does not require another message.
 
 Approval expires when:
 
 - The candidate path, inode, ownership, or purpose changes
 - A build or simulator starts using the candidate
-- The audit is no longer current enough to trust
+- The audit is no longer current enough to trust and revalidation cannot prove
+  the same ID, identity, risk, and action. An unchanged refreshed audit preserves
+  approval.
 - The proposed action changes from Trash to permanent deletion
 - A reversible action changes into an irreversible API operation
 

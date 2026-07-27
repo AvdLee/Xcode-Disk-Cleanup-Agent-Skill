@@ -20,10 +20,11 @@ description: >-
 - Never mutate storage before presenting exact candidate IDs, paths or simulator
   identifiers, measured sizes, risks, and regeneration costs.
 - Treat a category-level request made after an audit (for example, “remove all
-  outdated documentation caches”) as selection intent only. Expand it to the
-  current audited candidates, present the exact IDs, then require one explicit
-  confirmation of that frozen ID set before mutation. Broad requests made before
-  an audit, such as “clean Xcode” or “delete everything,” remain audit-only.
+  outdated documentation caches”) as approval of the matching, current frozen
+  selection set when it was already fully enumerated to the user. Execute in
+  that turn after revalidation; do not restate the set and ask again. No special
+  command or repeated confirmation is required. Broad requests made before an
+  audit, such as “clean Xcode” or “delete everything,” remain audit-only.
 - Default ordinary files and directories to Trash. Explain that space is not
   reclaimed until Trash is emptied, and request separate approval before doing so.
 - Revalidate identity and running-process usage immediately before mutation.
@@ -152,30 +153,38 @@ Include:
 - A warning that APFS cloning and snapshots make candidate sizes non-additive
 - A direct request for approval of exact IDs. When the user selects a category,
   restate every selected ID, the summed size, risk, and proposed action in a
-  single frozen confirmation set. A single confirmation may approve that set;
-  do not add newly discovered or reclassified items to it.
+  single frozen selection set. State once that a later plain-language removal
+  request approves the matching set. Do not ask the user to repeat IDs, use a
+  prescribed phrase, or reconfirm after an unchanged revalidation.
 
-### 5. Expand category selections and apply only confirmed IDs
+### 5. Expand category selections and apply only approved IDs
 
 After a completed audit, a request such as “delete all stale DerivedData” or
-“clean up all outdated documentation caches” may select every currently audited
+“clean up all outdated documentation caches” may approve every currently audited
 candidate in that category only when all of the following hold:
 
 1. Every selected item has already passed the category-specific validation and
    has an exact stable ID, path or simulator identifier, size, risk, and action.
 2. The assistant prints the complete expanded ID list, summed size, and action
-   as a frozen confirmation set.
-3. The user explicitly confirms that displayed set. This confirmation authorizes
-   only the IDs in that set, not the category in general.
-4. The audit remains current and revalidation succeeds. If an item changes,
-   becomes active, or is reclassified, exclude it and ask for a new confirmation.
+   as a frozen selection set and explains that a plain-language category request
+   will approve it.
+3. The user then makes an unambiguous, affirmative request to remove that
+   category. This is the single approval and authorizes only the IDs in the
+   displayed set, not the category in general. Apply it immediately after
+   revalidation; never require a magic phrase or another user turn.
+4. Revalidation succeeds. A refreshed audit does not invalidate approval when
+   every approved candidate retains the same ID, identity, risk, and action.
+   Silently use the refreshed audit and proceed. Never add a new candidate.
+5. If an approved item changes, becomes active, or is reclassified, exclude and
+   report that item. Continue with unchanged approved items when safe; ask again
+   only if proceeding would materially change the approved scope or action.
 
 Never infer category membership from a broad request before the audit, and never
 include preserve items, archives/dSYMs, active assets, or simulator operations
 unless their separate safeguards and approvals are met.
 
-Invoke apply only after direct per-ID approval or confirmation of a frozen
-expanded ID set from the current audit:
+Invoke apply only after direct per-ID approval or a plain-language approval of a
+frozen expanded ID set from the current audit:
 
 ```bash
 python3 "${SKILL_DIR}/scripts/xcode_disk_cleanup.py" apply \
@@ -199,6 +208,13 @@ Components after installing a newer Xcode beta.
 
 Do not pass either confirmation phrase unless the corresponding user approval is
 present in the conversation.
+
+“Separate approval” means distinct, explicit intent for the irreversible
+Simulator category, not necessarily a separate message. After exact Simulator
+IDs and permanent data loss have been shown, a single request such as “remove
+the DerivedData and unavailable simulators” contains both ordinary approval and
+separate category-specific irreversible approval. Revalidate and execute both in
+that turn. A generic “clean everything” does not provide irreversible approval.
 
 ### 6. Verify
 
@@ -228,7 +244,7 @@ present in the conversation.
 - [ ] Candidate and actual recovered space are separate
 - [ ] Archives/dSYMs are preserve-by-default
 - [ ] Active processes and selected Xcode are protected
-- [ ] User directly approved exact IDs or explicitly confirmed a frozen,
-      fully enumerated selection set
+- [ ] User directly approved exact IDs or made an unambiguous category request
+      after its fully enumerated frozen selection set was shown
 - [ ] Irreversible operations received separate approval
 - [ ] Post-cleanup audit confirms only approved items changed

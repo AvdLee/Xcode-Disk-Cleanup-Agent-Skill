@@ -1,5 +1,5 @@
 name: xcode-disk-cleanup
-version: "0.1.0"
+version: "0.2.0"
 description: >-
   Audit Xcode developer storage, report recoverable GiB with evidence, and clean
   only exact user-approved items.
