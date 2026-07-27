@@ -102,7 +102,12 @@ Sort by recoverable GiB and show:
 Keep the proposal scannable:
 
 - Render folder candidates as clickable `file://` links so the user can inspect
-  them before approving.
+  them before approving. Show the candidate ID only where the user needs it to
+  approve, not as the item's display name.
+- Carry the audit's `evidence` and `reason` fields into your notes. The script
+  already explains *why* each item is stale ("Unchanged for 4 days", "Superseded
+  by 16.4.1 (325) archived 2026-07-21", "the same documentation stays available");
+  dropping that context turns an explainable proposal into a bare file list.
 - Hide individual items below roughly 0.5 GiB; the full itemized list stays in
   `report.md` for reference. Do not pad the proposal with a "small items" bucket —
   it adds questions, not signal.
@@ -111,6 +116,23 @@ Keep the proposal scannable:
   like documentation caches or orphan archives. A category summarized in a
   trailing paragraph under another category's table gets overlooked, and
   overlooked items cannot be meaningfully approved.
+- Trust the scanner's classification unless you have live contrary evidence.
+  In particular, `Orphan archive` candidates already encode proof (no Organizer
+  distribution record plus a newer archive of the same app); do not demote them
+  back to preserve just because archives are preserve-by-default elsewhere.
+
+Format each category like this example, adapting labels to the machine:
+
+```markdown
+### Orphaned DerivedData — 15.5 GiB · regenerable
+
+All four belong to workspaces that no longer exist.
+
+| Folder | Size | Why stale |
+|---|---:|---|
+| [RocketSim-beqqrx…](file:///Users/me/Library/Developer/Xcode/DerivedData/RocketSim-beqqrximmvoaakbpvjshhqhuacyv) | 5.6 GiB | Workspace deleted; unchanged for 1 day |
+| [RocketSim-fjapct…](file:///Users/me/Library/Developer/Xcode/DerivedData/RocketSim-fjapctdhvtzcaaabmtsyumkmcarf) | 4.0 GiB | Only package downloads, no build products; unchanged for 4 days |
+```
 
 Include:
 
