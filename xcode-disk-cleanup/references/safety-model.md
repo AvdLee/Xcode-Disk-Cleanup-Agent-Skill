@@ -3,8 +3,10 @@
 ## Permission boundary
 
 A request to inspect, audit, find space, or clean Xcode authorizes read-only
-discovery. Mutation begins only after the agent presents a current itemized plan
-and the user approves exact candidate IDs.
+discovery. A category-level request after an audit may select the current
+eligible candidates, but mutation begins only after the agent presents the
+fully enumerated, current candidate ID set and the user explicitly confirms
+that exact frozen set.
 
 Approval expires when:
 

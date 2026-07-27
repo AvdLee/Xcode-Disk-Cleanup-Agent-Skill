@@ -19,8 +19,11 @@ description: >-
 - Treat every cleanup request as permission to audit, not permission to delete.
 - Never mutate storage before presenting exact candidate IDs, paths or simulator
   identifiers, measured sizes, risks, and regeneration costs.
-- Ask the user to approve specific IDs. Broad replies such as “clean Xcode” or
-  “delete everything” are not itemized approval.
+- Treat a category-level request made after an audit (for example, “remove all
+  outdated documentation caches”) as selection intent only. Expand it to the
+  current audited candidates, present the exact IDs, then require one explicit
+  confirmation of that frozen ID set before mutation. Broad requests made before
+  an audit, such as “clean Xcode” or “delete everything,” remain audit-only.
 - Default ordinary files and directories to Trash. Explain that space is not
   reclaimed until Trash is emptied, and request separate approval before doing so.
 - Revalidate identity and running-process usage immediately before mutation.
@@ -139,12 +142,32 @@ Include:
 - Total candidate GiB by risk
 - Current free disk space
 - A warning that APFS cloning and snapshots make candidate sizes non-additive
-- A direct request for approval of exact IDs
+- A direct request for approval of exact IDs. When the user selects a category,
+  restate every selected ID, the summed size, risk, and proposed action in a
+  single frozen confirmation set. A single confirmation may approve that set;
+  do not add newly discovered or reclassified items to it.
 
-### 5. Apply only approved IDs
+### 5. Expand category selections and apply only confirmed IDs
 
-Invoke apply only after the user explicitly approves the exact IDs shown in the
-current audit:
+After a completed audit, a request such as “delete all stale DerivedData” or
+“clean up all outdated documentation caches” may select every currently audited
+candidate in that category only when all of the following hold:
+
+1. Every selected item has already passed the category-specific validation and
+   has an exact stable ID, path or simulator identifier, size, risk, and action.
+2. The assistant prints the complete expanded ID list, summed size, and action
+   as a frozen confirmation set.
+3. The user explicitly confirms that displayed set. This confirmation authorizes
+   only the IDs in that set, not the category in general.
+4. The audit remains current and revalidation succeeds. If an item changes,
+   becomes active, or is reclassified, exclude it and ask for a new confirmation.
+
+Never infer category membership from a broad request before the audit, and never
+include preserve items, archives/dSYMs, active assets, or simulator operations
+unless their separate safeguards and approvals are met.
+
+Invoke apply only after direct per-ID approval or confirmation of a frozen
+expanded ID set from the current audit:
 
 ```bash
 python3 "${SKILL_DIR}/scripts/xcode_disk_cleanup.py" apply \
@@ -197,6 +220,7 @@ present in the conversation.
 - [ ] Candidate and actual recovered space are separate
 - [ ] Archives/dSYMs are preserve-by-default
 - [ ] Active processes and selected Xcode are protected
-- [ ] User approved exact IDs
+- [ ] User directly approved exact IDs or explicitly confirmed a frozen,
+      fully enumerated selection set
 - [ ] Irreversible operations received separate approval
 - [ ] Post-cleanup audit confirms only approved items changed
