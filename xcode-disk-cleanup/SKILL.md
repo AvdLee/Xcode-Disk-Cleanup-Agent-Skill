@@ -45,8 +45,16 @@ Read `references/safety-model.md` before applying cleanup.
 1. Confirm the host is macOS and the bundled script is available.
 2. Check for active Xcode, Simulator, `xcodebuild`, Swift build, test, archive, and
    package-resolution processes.
-3. If builds are active, audit may continue, but defer all cleanup.
-4. Determine optional source roots for project-local `.build` and `.derived-data`
+3. Treat an open Xcode or Simulator application as context, not an automatic
+   cleanup blocker. Defer an affected cleanup when a build, test, archive, or
+   package-resolution process is active, an exact candidate is actively needed
+   by that operation, or a supported deletion API requires the app/device to be
+   stopped.
+4. Do not ask the user to quit apps merely because they appear in `ps`. For
+   regenerable documentation caches, moving an old cache while Xcode is open may
+   temporarily remove local documentation until it reloads, but does not require
+   quitting Xcode or Simulator. State that cost instead.
+5. Determine optional source roots for project-local `.build` and `.derived-data`
    scanning. Do not crawl the whole home directory.
 
 ### 2. Run the read-only audit

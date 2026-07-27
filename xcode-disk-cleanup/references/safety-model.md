@@ -40,7 +40,12 @@ assets, credentials, and anything with uncertain ownership or recovery.
 - Move ordinary paths to Trash; never follow symlinks.
 - Do not empty Trash without separate confirmation.
 - Reject wildcard IDs and broad path prefixes.
-- Recheck `ps` for Xcode, Simulator, builds, tests, archives, and package resolution.
+- Recheck active builds, tests, archives, package resolution, and exact candidate
+  usage immediately before mutation. An open Xcode or Simulator application by
+  itself is not a blocker.
+- For regenerable documentation caches, warn that local documentation may be
+  temporarily unavailable while Xcode reloads it; do not require Xcode or
+  Simulator to quit solely for that reason.
 - Refuse a path when its inode/device no longer matches the audit.
 - Avoid `sudo`; do not disable SIP or alter protected system assets.
 - Do not manually remove `/Library/Developer/CoreSimulator`,
