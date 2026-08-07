@@ -12,6 +12,8 @@ Simulator interactions, and his [other agent skills](#see-also-my-other-skills)
 like the popular [SwiftUI](https://github.com/AvdLee/SwiftUI-Agent-Skill) and
 [Swift Concurrency](https://github.com/AvdLee/Swift-Concurrency-Agent-Skill) ones.
 
+This repository is packaged as a portable [Agent Plugin](https://agent-plugins.org) (spec 1.0.0): compatible clients discover the skill automatically from the root `plugin.json` manifest and the `skills/` directory. Client-specific manifests for Claude Code, Cursor, Codex, and pi are included as well.
+
 ## Who this is for
 
 - Developers whose Mac keeps running out of space and suspect Xcode is the reason
@@ -168,10 +170,10 @@ When team members open the project, Claude Code will prompt them to install the 
 ### Option C: Codex / OpenAI-compatible tools
 
 This repository includes an `agents/openai.yaml` manifest. Copy or symlink the
-`xcode-disk-cleanup/` folder into your Codex skills directory:
+`skills/xcode-disk-cleanup/` folder into your Codex skills directory:
 
 ```bash
-cp -R xcode-disk-cleanup/ "$CODEX_HOME/skills/xcode-disk-cleanup"
+cp -R skills/xcode-disk-cleanup/ "$CODEX_HOME/skills/xcode-disk-cleanup"
 ```
 
 See the [Codex skills documentation](https://developers.openai.com/codex/skills/)
@@ -187,10 +189,14 @@ pi install https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill
 
 The skill will be available automatically in pi sessions.
 
-### Option E: Manual install
+### Option E: Cursor Plugin
+
+Load the plugin from a local clone by placing it in `~/.cursor/plugins/local`, or install it from the Cursor Marketplace once listed. Cursor supports both the portable Agent Plugins manifest (`plugin.json`) and the Cursor Plugin manifest (`.cursor-plugin/plugin.json`) included in this repository.
+
+### Option F: Manual install
 
 1. **Clone** this repository.
-2. **Install or symlink** the `xcode-disk-cleanup/` folder following your
+2. **Install or symlink** the `skills/xcode-disk-cleanup/` folder following your
    tool's official skills installation docs (see links below).
 3. **Ask your AI tool** to use the “xcode-disk-cleanup” skill when storage runs low.
 
@@ -208,10 +214,12 @@ Your agent should run the bundled audit script first, present an itemized
 report with candidate IDs and recoverable GiB, and refuse to delete anything
 until you approve exact IDs.
 
+> Note: the skill folder moved from the repository root to `skills/xcode-disk-cleanup/` when adopting the Agent Plugins format. A symlink at the old `xcode-disk-cleanup/` path keeps existing local clones and scripts working; it will be removed in the next major version.
+
 ## Skill Structure
 
 ```text
-xcode-disk-cleanup/
+skills/xcode-disk-cleanup/
   SKILL.md - Safety contract, audit workflow, and proposal format
   references/
     safety-model.md - Confirmation phrases, Trash-first behavior, protected paths

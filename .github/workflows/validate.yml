@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Compile Python
-        run: python3 -m compileall xcode-disk-cleanup/scripts tests
+        run: python3 -m compileall skills/xcode-disk-cleanup/scripts tests
       - name: Run tests
         run: python3 -m unittest discover -s tests -v
       - name: Validate metadata
