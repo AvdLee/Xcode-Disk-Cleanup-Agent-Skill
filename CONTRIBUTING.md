@@ -6,7 +6,7 @@ Contributions should make Xcode storage cleanup more explainable and safer.
 
 ```bash
 python3 -m unittest discover -s tests -v
-python3 -m compileall xcode-disk-cleanup/scripts tests
+python3 -m compileall skills/xcode-disk-cleanup/scripts tests
 ```
 
 ## Requirements
