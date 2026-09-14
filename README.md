@@ -121,8 +121,10 @@ structured JSON instead of ad-hoc shell output.
 Install this skill with a single command:
 
 ```bash
-npx skills add https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill --skill xcode-disk-cleanup
+npx skills@latest add https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill --skill xcode-disk-cleanup
 ```
+
+> Installed before the Agent Plugins migration? Run `npx skills@latest update` using skills CLI 1.5.24 or newer. It migrates the saved skill path without treating the skill as deleted.
 
 Then use the skill in your AI agent, for example:
 
