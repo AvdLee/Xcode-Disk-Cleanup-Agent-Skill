@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">Xcode Disk Cleanup</title>
+  <rect width="128" height="128" rx="24" fill="#1f6feb"/>
+  <path d="M35 31h58a8 8 0 0 1 8 8v50a8 8 0 0 1-8 8H35a8 8 0 0 1-8-8V39a8 8 0 0 1 8-8Z" fill="none" stroke="#fff" stroke-width="8"/>
+  <path d="M42 50h44M42 67h31M42 84h20" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+  <path d="m84 73 12 12 20-25" fill="none" stroke="#7ee787" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

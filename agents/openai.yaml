@@ -1,5 +1,5 @@
 name: xcode-disk-cleanup
-version: "0.2.0"
+version: "1.1.0"
 description: >-
   Audit Xcode developer storage, report recoverable GiB with evidence, and clean
   only exact user-approved items.
@@ -8,7 +8,7 @@ author:
   email: contact@avanderlee.com
 repository: https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill
 license: MIT
-logo: assets/logo.svg
+logo: skills/xcode-disk-cleanup/assets/logo.svg
 keywords:
   - xcode
   - macos
@@ -17,4 +17,4 @@ keywords:
   - simulator
   - swiftpm
 skills:
-  - xcode-disk-cleanup
+  - skills/xcode-disk-cleanup

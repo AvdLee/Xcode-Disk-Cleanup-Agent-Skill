@@ -5,7 +5,7 @@
   ],
   "pi": {
     "skills": [
-      "./xcode-disk-cleanup"
+      "./skills/xcode-disk-cleanup"
     ]
   }
 }

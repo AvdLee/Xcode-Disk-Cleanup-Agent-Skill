@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "xcode-disk-cleanup",
+  "version": "1.1.0",
+  "description": "Audit Xcode developer storage, report recoverable GiB with evidence, and clean only exact user-approved items.",
+  "author": {
+    "name": "Antoine van der Lee",
+    "email": "contact@avanderlee.com",
+    "url": "https://www.avanderlee.com"
+  },
+  "homepage": "https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill",
+  "repository": "https://github.com/AvdLee/Xcode-Disk-Cleanup-Agent-Skill",
+  "license": "MIT",
+  "keywords": [
+    "xcode",
+    "macos",
+    "disk-cleanup",
+    "derived-data",
+    "simulator",
+    "swiftpm",
+    "storage",
+    "developer-tools"
+  ]
+}
